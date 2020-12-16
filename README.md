@@ -5,20 +5,20 @@ This project is based on Michael Bosellos's repository https://github.com/Michae
 
 Now the DQN inputs and outputs are only passed to the car instance, not as before. It is the car instance that orchestrates the data coming from the sensors and aggregates them into a single frame, which is fed to the DQN
 
-# Commands
+## Commands
 
-standard learning run -> rl_car_driver.py
-restore old run -> rl_car_driver.py --model run-out-xxxx-xx-xx-xx-xx-xx --epsilon YourLastEpsilon
+- standard learning run -> **rl_car_driver.py**
+- restore old run -> **rl_car_driver.py --model run-out-xxxx-xx-xx-xx-xx-xx --epsilon YourLastEpsilon**
 
 note: setting epsilon and epsilon-min to 0 makes the code run on eval mode.
 
-# Dependecieas
+## Dependecieas
 
-CARLA simulator requires specific python version.
+**CARLA simulator requires specific python version.**
 
-CARLA 0.9.8
-python 3.7.7
-TensorFlow 2.x (actually used in v1 mode)
+- CARLA 0.9.8
+- python 3.7.7
+- TensorFlow 2.x (actually used in v1 mode)
 
 
 You can find CARLA simulator at this link, choose the specified version. https://github.com/carla-simulator/carla/releases
