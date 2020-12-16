@@ -14,7 +14,7 @@ note: setting epsilon and epsilon-min to 0 makes the code run on eval mode.
 
 ## Dependecies
 
-**CARLA simulator requires specific python version.**
+**CARLA simulator requires specific python version to work properly.**
 
 - CARLA 0.9.8
 - python 3.7.7
