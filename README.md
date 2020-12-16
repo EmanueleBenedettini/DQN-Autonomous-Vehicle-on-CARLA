@@ -12,7 +12,7 @@ Now the DQN inputs and outputs are only passed to the car instance, not as befor
 
 note: setting epsilon and epsilon-min to 0 makes the code run on eval mode.
 
-## Dependecieas
+## Dependecies
 
 **CARLA simulator requires specific python version.**
 
