@@ -34,7 +34,7 @@ except IndexError:
 import carla
 
 
-CONFIGFILE = "./config/config.json"
+CONFIGFILE = "config.json"
 
 
 class Car:
