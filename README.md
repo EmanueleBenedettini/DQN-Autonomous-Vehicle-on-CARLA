@@ -21,5 +21,5 @@ note: setting epsilon and epsilon-min to 0 makes the code run on eval mode.
 - TensorFlow 2.x (actually used in v1 mode)
 
 
-You can find CARLA simulator at this link, choose the specified version. https://github.com/carla-simulator/carla/releases
-On Windows, copy  CARLA_Sim_Launcher/Launcher.bat into your folder containig the downloaded simulator (location of CarlaUE4.exe). This is a workaround for the random server side crashes I've experienced, this script it's just restarting it every time it closes. 
+You can find CARLA simulator at this link, choose the specified version. https://github.com/carla-simulator/carla/releases  
+On Windows, copy  CARLA_Sim_Launcher/Launcher.bat into your folder containig the downloaded simulator (location of CarlaUE4.exe).  This is a workaround for the random server side crashes I've experienced, this script it's just restarting it every time it closes. 
