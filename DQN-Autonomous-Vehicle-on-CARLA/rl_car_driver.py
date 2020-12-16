@@ -46,7 +46,7 @@ parser.add_argument("--target-model-update-freq", type=int, default=300, help="h
 parser.add_argument("--model", help="tensorflow model checkpoint file to initialize from")
 parser.add_argument("--frame", type=int, default=2, help="frame per step")
 parser.add_argument("--epsilon", type=float, default=1, help="]0, 1]for epsilon greedy train")
-parser.add_argument("--epsilon-decay", type=float, default=0.99988, help="]0, 1] every step epsilon = epsilon * decay, in order to decrease constantly")
+parser.add_argument("--epsilon-decay", type=float, default=0.99998, help="]0, 1] every step epsilon = epsilon * decay, in order to decrease constantly")
 parser.add_argument("--epsilon-min", type=float, default=0.1, help="epsilon with decay doesn't fall below epsilon min")
 parser.add_argument("--tensorboard-logging-freq", type=int, default=300, help="save training statistics once every X steps")
 args = parser.parse_args()
