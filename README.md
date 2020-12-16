@@ -17,8 +17,13 @@ note: setting epsilon and epsilon-min to 0 makes the code run on eval mode.
 **CARLA simulator requires specific python version to work properly.**
 
 - CARLA 0.9.8
-- python 3.7.7
+- python 3.7.9
 - TensorFlow 2.x (actually used in v1 mode)
+
+Other python versions could work but this one suggested.  
+I also suggest to use anaconda.  
+At this link the tensorflow intallation https://docs.anaconda.com/anaconda/user-guide/tasks/tensorflow/  
+If your system has an NVIDIA gpu, install the gpu version, else you can use the cpu one but it can be much slower.
 
 
 You can find CARLA simulator at this link, choose the specified version. https://github.com/carla-simulator/carla/releases  
