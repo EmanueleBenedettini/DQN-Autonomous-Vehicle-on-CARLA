@@ -1,21 +1,5 @@
 #!/usr/bin/env python3.7.7
 
-###############################################################################
-# c-ray - a simple raytracer
-#
-# http://www.futuretech.blinkenlights.nl/c-ray.html
-#
-# Copyright (C) 2006 John Tsiombikas <nuclear@siggraph.org>
-# Copyright (C) 2016, 2017, 2018 Moreno Marzolla <moreno.marzolla@unibo.it>
-#
-# You are free to use, modify and redistribute this program under the
-# terms of the GNU General Public License v2 or (at your option) later.
-# see "http://www.gnu.org/licenses/gpl.txt" for details.
-# ---------------------------------------------------------------------------
-# Usage:
-#
-###############################################################################
-
 #
 from threading import Thread
 import sys
