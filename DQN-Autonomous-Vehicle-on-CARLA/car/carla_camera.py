@@ -1,12 +1,9 @@
-from .camera import Camera
-import numpy as np
 import threading
-import traitlets
-from car.car_carla import Car
-import cv2 as cv
+
+from .camera import Camera
 
 
-class CarlaCamera(Camera):    
+class CarlaCamera(Camera):
     def __init__(self, car):
         super(CarlaCamera, self).__init__()
         self.car = car

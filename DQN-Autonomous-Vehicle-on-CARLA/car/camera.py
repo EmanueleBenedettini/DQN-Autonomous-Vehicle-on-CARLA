@@ -2,36 +2,40 @@ import traitlets
 import threading
 import numpy as np
 
-class Camera(traitlets.HasTraits):
 
+def crop_bottom_half(image):
+    return image[int(image.shape[0] / 2):image.shape[0]]
+
+
+class Camera(traitlets.HasTraits):
     value = traitlets.Any()
     width = traitlets.Integer(default_value=224)
     height = traitlets.Integer(default_value=224)
     format = traitlets.Unicode(default_value='bgr8')
     running = traitlets.Bool(default_value=False)
-    
+
     def __init__(self, *args, **kwargs):
         super(Camera, self).__init__(*args, **kwargs)
         if self.format == 'bgr8':
             self.value = np.empty((self.height, self.width, 3), dtype=np.uint8)
         self._running = False
-            
+
     def _read(self):
         """Blocking call to read frame from camera"""
         raise NotImplementedError
-        
+
     def read(self):
         if self._running:
             raise RuntimeError('Cannot read directly while camera is running')
         self.value = self._read()
         return self.value
-    
+
     def _capture_frames(self):
         while True:
             if not self._running:
                 break
             self.value = self._read()
-            
+
     @traitlets.observe('running')
     def _on_running(self, change):
         if change['new'] and not change['old']:
@@ -46,14 +50,11 @@ class Camera(traitlets.HasTraits):
 
     def start_recording(self):
         raise RuntimeError('Not implemented exception')
-    
+
     def stop_recording(self):
-        #global video_recording
-        #video_recording = False
+        # global video_recording
+        # video_recording = False
         raise RuntimeError('Not implemented exception')
 
     def capture_as_rgb_array_bottom_half(self):
-      return self.crop_bottom_half(self.read())
-
-    def crop_bottom_half(self, image):
-      return image[int(image.shape[0]/2):image.shape[0]]
+        return crop_bottom_half(self.read())

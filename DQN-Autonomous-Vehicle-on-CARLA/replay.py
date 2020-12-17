@@ -2,8 +2,9 @@ import bisect
 import math
 import random
 
+
 class Sample:
-    
+
     def __init__(self, state1, action, reward, state2, terminal):
         self.state1 = state1
         self.action = action
@@ -20,8 +21,15 @@ class Sample:
         return self.cumulativeWeight - obj.cumulativeWeight
 
 
+def _printBatchWeight(batch):
+    batchWeight = 0
+    for i in range(0, len(batch)):
+        batchWeight += batch[i].weight
+    print('batch weight: %f' % batchWeight)
+
+
 class ReplayMemory:
-    
+
     def __init__(self, args):
         self.samples = []
         self.maxSamples = args.replay_capacity
@@ -43,10 +51,10 @@ class ReplayMemory:
 
         if self.samples[-1].isInteresting():
             self.numInterestingSamples += 1
-            
+
             # Boost the neighboring samples.  How many samples?  Roughly the number of samples
             # that are "uninteresting".  Meaning if interesting samples occur 3% of the time, then boost 33
-            uninterestingSampleRange = max(1, len(self.samples) / max(1, self.numInterestingSamples))
+            uninterestingSampleRange = max(1.0, len(self.samples) / max(1, self.numInterestingSamples))
             uninterestingSampleRange = int(uninterestingSampleRange)
             for i in range(uninterestingSampleRange, 0, -1):
                 index = len(self.samples) - i
@@ -54,12 +62,13 @@ class ReplayMemory:
                     break
                 # This is an exponential that ranges from 3.0 to 1.01 over the domain of [0, uninterestingSampleRange]
                 # So the interesting sample gets a 3x boost, and the one furthest away gets a 1% boost
-                boost = 1.0 + 3.0/(math.exp(i/(uninterestingSampleRange/6.0)))
+                boost = 1.0 + 3.0 / (math.exp(i / (uninterestingSampleRange / 6.0)))
                 self.samples[index].weight *= boost
-                self.samples[index].cumulativeWeight = self.samples[index].weight + self.samples[index - 1].cumulativeWeight
-    
+                self.samples[index].cumulativeWeight = self.samples[index].weight + self.samples[
+                    index - 1].cumulativeWeight
+
     def _truncateListIfNecessary(self):
-        # premature optimizastion alert :-), don't truncate on each
+        # premature optimization alert :-), don't truncate on each
         # added sample since (I assume) it requires a memcopy of the list (probably 8mb)
         if len(self.samples) > self.maxSamples * 1.05:
             truncatedWeight = 0
@@ -72,17 +81,17 @@ class ReplayMemory:
 
             # Truncate the list
             self.samples = self.samples[(len(self.samples) - self.maxSamples):]
-            
+
             # Correct cumulativeWeights
             for sample in self.samples:
                 sample.cumulativeWeight -= truncatedWeight
-    
+
     def drawBatch(self, batchSize):
         if batchSize > len(self.samples):
             raise IndexError('Too few samples (%d) to draw a batch of %d' % (len(self.samples), batchSize))
-        
+
         self.batchesDrawn += 1
-        
+
         if self.prioritizedReplay:
             return self._drawPrioritizedBatch(batchSize)
         else:
@@ -109,9 +118,3 @@ class ReplayMemory:
                 cumulative += sample.weight
                 sample.cumulativeWeight = cumulative
         return batch
-    
-    def _printBatchWeight(self, batch):
-        batchWeight = 0
-        for i in range(0, len(batch)):
-            batchWeight += batch[i].weight
-        print('batch weight: %f' % batchWeight)

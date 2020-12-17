@@ -3,8 +3,8 @@ import numpy as np
 import os
 import tensorflow as tf
 
-import state
 from state import State
+
 
 class GradientClippingOptimizer(tf.compat.v1.train.Optimizer):
     def __init__(self, optimizer, use_locking=False, name="GradientClipper"):
@@ -24,9 +24,23 @@ class GradientClippingOptimizer(tf.compat.v1.train.Optimizer):
     def apply_gradients(self, *args, **kwargs):
         return self.optimizer.apply_gradients(*args, **kwargs)
 
+
+def variable_summaries(var):
+    """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
+    with tf.compat.v1.name_scope('summaries'):
+        mean = tf.reduce_mean(var)
+        tf.compat.v1.summary.scalar('mean', mean)
+        with tf.compat.v1.name_scope('stddev'):
+            stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+            tf.compat.v1.summary.scalar('stddev', stddev)
+            tf.compat.v1.summary.scalar('max', tf.reduce_max(var))
+            tf.compat.v1.summary.scalar('min', tf.reduce_min(var))
+            tf.compat.v1.summary.histogram('histogram', var)
+
+
 class DeepQNetwork:
     def __init__(self, numActions, baseDir, args):
-        
+
         self.numActions = numActions
         self.baseDir = baseDir
         self.saveModelFrequency = args.save_model_freq
@@ -37,30 +51,26 @@ class DeepQNetwork:
         self.step_frames = args.frame
 
         self.staleSess = None
-        
-        #
+
+        # Run in compatibility mode
         tf.compat.v1.disable_v2_behavior()
 
-        #self.sess = tf.Session()
         self.sess = tf.compat.v1.Session()
 
-        #
-        #tf.compat.v1.disable_eager_execution()
-        
-        assert (len(tf.compat.v1.global_variables()) == 0),"Expected zero variables"
+        assert (len(tf.compat.v1.global_variables()) == 0), "Expected zero variables"
         self.x, self.y = self.buildNetwork('policy', True, numActions)
-        assert (len(tf.compat.v1.trainable_variables()) == 10),"Expected 10 trainable_variables"
-        assert (len(tf.compat.v1.global_variables()) == 10),"Expected 10 total variables"
+        assert (len(tf.compat.v1.trainable_variables()) == 10), "Expected 10 trainable_variables"
+        assert (len(tf.compat.v1.global_variables()) == 10), "Expected 10 total variables"
         self.x_target, self.y_target = self.buildNetwork('target', False, numActions)
-        assert (len(tf.compat.v1.trainable_variables()) == 10),"Expected 10 trainable_variables"
-        assert (len(tf.compat.v1.global_variables()) == 20),"Expected 20 total variables"
+        assert (len(tf.compat.v1.trainable_variables()) == 10), "Expected 10 trainable_variables"
+        assert (len(tf.compat.v1.global_variables()) == 20), "Expected 20 total variables"
 
         # build the variable copy ops
         self.update_target = []
         trainable_variables = tf.compat.v1.trainable_variables()
         all_variables = tf.compat.v1.global_variables()
         for i in range(0, len(trainable_variables)):
-          self.update_target.append(all_variables[len(trainable_variables) + i].assign(trainable_variables[i]))
+            self.update_target.append(all_variables[len(trainable_variables) + i].assign(trainable_variables[i]))
 
         self.a = tf.compat.v1.placeholder(tf.float32, shape=[None, numActions])
         print('a %s' % (self.a.get_shape()))
@@ -87,46 +97,50 @@ class DeepQNetwork:
         self.summary_writer = tf.compat.v1.summary.FileWriter(self.baseDir + '/tensorboard', self.sess.graph)
 
         if args.model is not None:
-            print('Loading from model file %s' % (args.model))
-            #self.saver = tf.compat.v1.train.import_meta_graph(args.model + '.meta')
-            #self.saver.restore(self.sess, args.model)
+            print('Loading from model file %s' % args.model)
+            # self.saver = tf.compat.v1.train.import_meta_graph(args.model + '.meta')
+            # self.saver.restore(self.sess, args.model)
             self.saver.restore(self.sess, tf.train.latest_checkpoint(args.model))
         else:
             # Initialize variables
             self.sess.run(tf.compat.v1.global_variables_initializer())
-            self.sess.run(self.update_target) # is this necessary?
+            self.sess.run(self.update_target)  # is this necessary?
 
     def buildNetwork(self, name, trainable, numActions):
-        
+
         print("Building network for %s trainable=%s" % (name, trainable))
 
         # First layer takes a screen, and shrinks by 2x
-        x = tf.compat.v1.placeholder(tf.uint8, shape=[None, State.IMAGE_SIZE, State.IMAGE_SIZE, self.step_frames], name="screens")
+        x = tf.compat.v1.placeholder(tf.uint8, shape=[None, State.IMAGE_SIZE, State.IMAGE_SIZE, self.step_frames],
+                                     name="screens")
         print(x)
 
-        #x_normalized = tf.to_float(x) / 255.0
-        x_normalized = tf.cast(x, dtype=tf.float32) / 255.0   
+        # x_normalized = tf.to_float(x) / 255.0
+        x_normalized = tf.cast(x, dtype=tf.float32) / 255.0
         print(x_normalized)
 
         # Second layer convolves 32 8x8 filters with stride 4 with relu
         with tf.compat.v1.variable_scope("cnn1_" + name):
             W_conv1, b_conv1 = self.makeLayerVariables([8, 8, self.step_frames, 16], trainable, "conv1")
 
-            h_conv1 = tf.nn.relu(tf.nn.conv2d(x_normalized, W_conv1, strides=[1, 4, 4, 1], padding='VALID') + b_conv1, name="h_conv1")
+            h_conv1 = tf.nn.relu(tf.nn.conv2d(x_normalized, W_conv1, strides=[1, 4, 4, 1], padding='VALID') + b_conv1,
+                                 name="h_conv1")
             print(h_conv1)
 
         # Third layer convolves 64 4x4 filters with stride 2 with relu
         with tf.compat.v1.variable_scope("cnn2_" + name):
             W_conv2, b_conv2 = self.makeLayerVariables([4, 4, 16, 32], trainable, "conv2")
 
-            h_conv2 = tf.nn.relu(tf.nn.conv2d(h_conv1, W_conv2, strides=[1, 2, 2, 1], padding='VALID') + b_conv2, name="h_conv2")
+            h_conv2 = tf.nn.relu(tf.nn.conv2d(h_conv1, W_conv2, strides=[1, 2, 2, 1], padding='VALID') + b_conv2,
+                                 name="h_conv2")
             print(h_conv2)
 
         # Fourth layer convolves 64 3x3 filters with stride 1 with relu
         with tf.compat.v1.variable_scope("cnn3_" + name):
             W_conv3, b_conv3 = self.makeLayerVariables([3, 3, 32, 32], trainable, "conv3")
 
-            h_conv3 = tf.nn.relu(tf.nn.conv2d(h_conv2, W_conv3, strides=[1, 1, 1, 1], padding='VALID') + b_conv3, name="h_conv3")
+            h_conv3 = tf.nn.relu(tf.nn.conv2d(h_conv2, W_conv3, strides=[1, 1, 1, 1], padding='VALID') + b_conv3,
+                                 name="h_conv3")
             print(h_conv3)
 
         h_conv3_flat = tf.reshape(h_conv3, [-1, 7 * 7 * 32], name="h_conv3_flat")
@@ -145,40 +159,31 @@ class DeepQNetwork:
 
             y = tf.matmul(h_fc1, W_fc2) + b_fc2
             print(y)
-            
+
         return x, y
 
     def makeLayerVariables(self, shape, trainable, name_suffix):
         if self.normalizeWeights:
-            # This is my best guess at what DeepMind does via torch's Linear.lua and SpatialConvolution.lua (see reset methods).
-            # np.prod(shape[0:-1]) is attempting to get the total inputs to each node
+            # This is my best guess at what DeepMind does via torch's Linear.lua and SpatialConvolution.lua (see
+            # reset methods). np.prod(shape[0:-1]) is attempting to get the total inputs to each node
             stdv = 1.0 / math.sqrt(np.prod(shape[0:-1]))
-            weights = tf.Variable(tf.compat.v1.random_uniform(shape, minval=-stdv, maxval=stdv), trainable=trainable, name='W_' + name_suffix)
-            biases  = tf.Variable(tf.compat.v1.random_uniform([shape[-1]], minval=-stdv, maxval=stdv), trainable=trainable, name='W_' + name_suffix)
+            weights = tf.Variable(tf.compat.v1.random_uniform(shape, minval=-stdv, maxval=stdv), trainable=trainable,
+                                  name='W_' + name_suffix)
+            biases = tf.Variable(tf.compat.v1.random_uniform([shape[-1]], minval=-stdv, maxval=stdv),
+                                 trainable=trainable, name='W_' + name_suffix)
         else:
-            weights = tf.Variable(tf.random.truncated_normal(shape, stddev=0.01), trainable=trainable, name='W_' + name_suffix)
-            biases  = tf.Variable(tf.fill([shape[-1]], 0.1), trainable=trainable, name='W_' + name_suffix)
-        self.variable_summaries(weights)
-        self.variable_summaries(biases)
+            weights = tf.Variable(tf.random.truncated_normal(shape, stddev=0.01), trainable=trainable,
+                                  name='W_' + name_suffix)
+            biases = tf.Variable(tf.fill([shape[-1]], 0.1), trainable=trainable, name='W_' + name_suffix)
+        variable_summaries(weights)
+        variable_summaries(biases)
         return weights, biases
 
-    def variable_summaries(self, var):
-        """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
-        with tf.compat.v1.name_scope('summaries'):
-            mean = tf.reduce_mean(var)
-            tf.compat.v1.summary.scalar('mean', mean)
-            with tf.compat.v1.name_scope('stddev'):
-                stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-                tf.compat.v1.summary.scalar('stddev', stddev)
-                tf.compat.v1.summary.scalar('max', tf.reduce_max(var))
-                tf.compat.v1.summary.scalar('min', tf.reduce_min(var))
-                tf.compat.v1.summary.histogram('histogram', var)
-        
     def inference(self, screens):
         y = self.sess.run([self.y], {self.x: screens})
         q_values = np.squeeze(y)
         return np.argmax(q_values)
-        
+
     def train(self, batch, stepNumber):
 
         x2 = [b.state2.getScreens() for b in batch]
@@ -187,7 +192,7 @@ class DeepQNetwork:
         x = [b.state1.getScreens() for b in batch]
         a = np.zeros((len(batch), self.numActions))
         y_ = np.zeros(len(batch))
-        
+
         for i in range(0, len(batch)):
             a[i, batch[i].action] = 1
             if batch[i].terminal:
@@ -195,24 +200,24 @@ class DeepQNetwork:
             else:
                 y_[i] = batch[i].reward + self.gamma * np.max(y2[i])
 
-        if  stepNumber % self.tensorboardFrequency == 0:
-            summary, _ = self.sess.run([self.merged, self.train_step], 
-            feed_dict={
-                self.x: x,
-                self.a: a,
-                self.y_: y_
-            })
+        if stepNumber % self.tensorboardFrequency == 0:
+            summary, _ = self.sess.run([self.merged, self.train_step],
+                                       feed_dict={
+                                           self.x: x,
+                                           self.a: a,
+                                           self.y_: y_
+                                       })
             self.summary_writer.add_summary(summary, stepNumber)
         else:
-          self.sess.run([self.train_step], 
-            feed_dict={
-                self.x: x,
-                self.a: a,
-                self.y_: y_
-            })
+            self.sess.run([self.train_step],
+                          feed_dict={
+                              self.x: x,
+                              self.a: a,
+                              self.y_: y_
+                          })
 
         if stepNumber % self.targetModelUpdateFrequency == 0:
-          self.sess.run(self.update_target)
+            self.sess.run(self.update_target)
 
         if stepNumber % self.targetModelUpdateFrequency == 0 or stepNumber % self.saveModelFrequency == 0:
             dir = self.baseDir + '/models'
