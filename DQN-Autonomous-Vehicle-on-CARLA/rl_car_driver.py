@@ -28,7 +28,7 @@ parser.add_argument("--compress-replay", action='store_true',
 parser.add_argument("--normalize-weights", action='store_true',
                     help="if set weights/biases are normalized like torch, with std scaled by fan in to the node")
 parser.add_argument("--save-model-freq", type=int, default=2000, help="save the model once per X training sessions")
-parser.add_argument("--observation-steps", type=int, default=350, help="train only after this many stesp (=X frames)")
+parser.add_argument("--observation-steps", type=int, default=350, help="train only after this many step (=X frames)")
 parser.add_argument("--learning-rate", type=float, default=0.0004,
                     help="learning rate (step size for optimization algo)")
 parser.add_argument("--gamma", type=float, default=0.996,
@@ -47,7 +47,10 @@ args = parser.parse_args()
 
 print('Arguments: ', args)
 
-baseOutputDir = 'run-out-' + time.strftime("%Y-%m-%d-%H-%M-%S")
+if args.model is not None:
+    baseOutputDir = args.model
+else:
+    baseOutputDir = 'run-out-' + time.strftime("%Y-%m-%d-%H-%M-%S")
 os.makedirs(baseOutputDir)
 
 State.setup(args)
@@ -75,7 +78,7 @@ train_epsilon = args.epsilon  # don't want to reset epsilon between epoch
 startTime = datetime.datetime.now()
 
 
-def runEpoch(minEpochSteps, evalWithEpsilon=None):
+def run_epoch(minEpochSteps, evalWithEpsilon=None):
     global train_epsilon
     stepStart = environment.getStepNumber()
     isTraining = True if evalWithEpsilon is None else False
@@ -103,7 +106,7 @@ def runEpoch(minEpochSteps, evalWithEpsilon=None):
             if state is None or random.random() < epsilon:
                 action = random.randrange(environment.getNumActions())
             else:
-                screens = np.reshape(state.getScreens(), (1, State.IMAGE_SIZE, State.IMAGE_SIZE, args.frame))
+                screens = np.reshape(state.get_screens(), (1, State.IMAGE_SIZE, State.IMAGE_SIZE, args.frame))
                 action = dqn.inference(screens)
 
             # Make the move
@@ -113,10 +116,10 @@ def runEpoch(minEpochSteps, evalWithEpsilon=None):
             # Record experience in replay memory and train
             if isTraining and oldState is not None:
                 clippedReward = min(1, max(-1, reward))
-                replayMemory.addSample(replay.Sample(oldState, action, clippedReward, state, isTerminal))
+                replayMemory.add_sample(replay.Sample(oldState, action, clippedReward, state, isTerminal))
 
                 if environment.getStepNumber() > args.observation_steps and environment.getEpisodeStepNumber() % args.frame == 0:
-                    batch = replayMemory.drawBatch(32)
+                    batch = replayMemory.draw_batch(32)
                     dqn.train(batch, environment.getStepNumber())
 
             if isTerminal:
@@ -142,10 +145,10 @@ def runEpoch(minEpochSteps, evalWithEpsilon=None):
 
 
 while not stop:
-    aveScore = runEpoch(args.train_epoch_steps)  # train
+    aveScore = run_epoch(args.train_epoch_steps)  # train
     print('Average training score: %d' % aveScore)
     print('\a')
-    aveScore = runEpoch(args.eval_epoch_steps, evalWithEpsilon=.0)  # eval
+    aveScore = run_epoch(args.eval_epoch_steps, evalWithEpsilon=.0)  # eval
     print('Average eval score: %d' % aveScore)
     print('\a')
 

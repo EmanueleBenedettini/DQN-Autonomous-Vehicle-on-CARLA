@@ -14,14 +14,14 @@ class Sample:
         self.weight = 1
         self.cumulativeWeight = 1
 
-    def isInteresting(self):
+    def is_interesting(self):
         return self.terminal or self.reward != 0
 
     def __cmp__(self, obj):
         return self.cumulativeWeight - obj.cumulativeWeight
 
 
-def _printBatchWeight(batch):
+def _print_batch_weight(batch):
     batchWeight = 0
     for i in range(0, len(batch)):
         batchWeight += batch[i].weight
@@ -37,19 +37,19 @@ class ReplayMemory:
         self.numInterestingSamples = 0
         self.batchesDrawn = 0
 
-    def numSamples(self):
+    def num_samples(self):
         return len(self.samples)
 
-    def addSample(self, sample):
+    def add_sample(self, sample):
         self.samples.append(sample)
-        self._updateWeightsForNewlyAddedSample()
-        self._truncateListIfNecessary()
+        self._update_weights_for_newly_added_sample()
+        self._truncate_list_If_necessary()
 
-    def _updateWeightsForNewlyAddedSample(self):
+    def _update_weights_for_newly_added_sample(self):
         if len(self.samples) > 1:
             self.samples[-1].cumulativeWeight = self.samples[-1].weight + self.samples[-2].cumulativeWeight
 
-        if self.samples[-1].isInteresting():
+        if self.samples[-1].is_interesting():
             self.numInterestingSamples += 1
 
             # Boost the neighboring samples.  How many samples?  Roughly the number of samples
@@ -67,7 +67,7 @@ class ReplayMemory:
                 self.samples[index].cumulativeWeight = self.samples[index].weight + self.samples[
                     index - 1].cumulativeWeight
 
-    def _truncateListIfNecessary(self):
+    def _truncate_list_If_necessary(self):
         # premature optimization alert :-), don't truncate on each
         # added sample since (I assume) it requires a memcopy of the list (probably 8mb)
         if len(self.samples) > self.maxSamples * 1.05:
@@ -76,7 +76,7 @@ class ReplayMemory:
             # for correcting the cumulativeWeights of the remaining samples
             for i in range(self.maxSamples, len(self.samples)):
                 truncatedWeight += self.samples[i].weight
-                if self.samples[i].isInteresting():
+                if self.samples[i].is_interesting():
                     self.numInterestingSamples -= 1
 
             # Truncate the list
@@ -86,14 +86,14 @@ class ReplayMemory:
             for sample in self.samples:
                 sample.cumulativeWeight -= truncatedWeight
 
-    def drawBatch(self, batchSize):
+    def draw_batch(self, batchSize):
         if batchSize > len(self.samples):
             raise IndexError('Too few samples (%d) to draw a batch of %d' % (len(self.samples), batchSize))
 
         self.batchesDrawn += 1
 
         if self.prioritizedReplay:
-            return self._drawPrioritizedBatch(batchSize)
+            return self._draw_prioritized_batch(batchSize)
         else:
             return random.sample(self.samples, batchSize)
 
@@ -101,7 +101,7 @@ class ReplayMemory:
     # This particular approach and the weighting I am using is a total
     # uninformed fabrication on my part.  There is probably a more
     # principled way to do this
-    def _drawPrioritizedBatch(self, batchSize):
+    def _draw_prioritized_batch(self, batchSize):
         batch = []
         probe = Sample(None, 0, 0, None, False)
         while len(batch) < batchSize:

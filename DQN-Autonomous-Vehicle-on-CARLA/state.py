@@ -13,7 +13,7 @@ class State:
         State.useCompression = args.compress_replay
         State.step_frames = args.frame
 
-    def stateByAddingScreen(self, screen, frameNumber):
+    def state_by_adding_screen(self, screen, frameNumber):
         screen = np.dot(screen, np.array([.299, .587, .114])).astype(np.uint8)
         y_resize = State.IMAGE_SIZE / screen.shape[0]
         x_resize = State.IMAGE_SIZE / screen.shape[1]
@@ -34,7 +34,7 @@ class State:
                 newState.screens.append(screen)
         return newState
 
-    def getScreens(self):
+    def get_screens(self):
         if State.useCompression:
             s = []
             for i in range(State.step_frames):

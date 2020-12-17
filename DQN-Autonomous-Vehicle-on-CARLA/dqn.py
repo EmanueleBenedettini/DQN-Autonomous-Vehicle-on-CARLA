@@ -49,19 +49,17 @@ class DeepQNetwork:
         self.normalizeWeights = args.normalize_weights
         self.gamma = args.gamma
         self.step_frames = args.frame
-
         self.staleSess = None
 
         # Run in compatibility mode
         tf.compat.v1.disable_v2_behavior()
 
         self.sess = tf.compat.v1.Session()
-
         assert (len(tf.compat.v1.global_variables()) == 0), "Expected zero variables"
-        self.x, self.y = self.buildNetwork('policy', True, numActions)
+        self.x, self.y = self.build_network('policy', True, numActions)
         assert (len(tf.compat.v1.trainable_variables()) == 10), "Expected 10 trainable_variables"
         assert (len(tf.compat.v1.global_variables()) == 10), "Expected 10 total variables"
-        self.x_target, self.y_target = self.buildNetwork('target', False, numActions)
+        self.x_target, self.y_target = self.build_network('target', False, numActions)
         assert (len(tf.compat.v1.trainable_variables()) == 10), "Expected 10 trainable_variables"
         assert (len(tf.compat.v1.global_variables()) == 20), "Expected 20 total variables"
 
@@ -98,16 +96,13 @@ class DeepQNetwork:
 
         if args.model is not None:
             print('Loading from model file %s' % args.model)
-            # self.saver = tf.compat.v1.train.import_meta_graph(args.model + '.meta')
-            # self.saver.restore(self.sess, args.model)
             self.saver.restore(self.sess, tf.train.latest_checkpoint(args.model))
         else:
             # Initialize variables
             self.sess.run(tf.compat.v1.global_variables_initializer())
-            self.sess.run(self.update_target)  # is this necessary?
+            self.sess.run(self.update_target)
 
-    def buildNetwork(self, name, trainable, numActions):
-
+    def build_network(self, name, trainable, numActions):
         print("Building network for %s trainable=%s" % (name, trainable))
 
         # First layer takes a screen, and shrinks by 2x
@@ -121,24 +116,21 @@ class DeepQNetwork:
 
         # Second layer convolves 32 8x8 filters with stride 4 with relu
         with tf.compat.v1.variable_scope("cnn1_" + name):
-            W_conv1, b_conv1 = self.makeLayerVariables([8, 8, self.step_frames, 16], trainable, "conv1")
-
+            W_conv1, b_conv1 = self.make_layer_variables([8, 8, self.step_frames, 16], trainable, "conv1")
             h_conv1 = tf.nn.relu(tf.nn.conv2d(x_normalized, W_conv1, strides=[1, 4, 4, 1], padding='VALID') + b_conv1,
                                  name="h_conv1")
             print(h_conv1)
 
         # Third layer convolves 64 4x4 filters with stride 2 with relu
         with tf.compat.v1.variable_scope("cnn2_" + name):
-            W_conv2, b_conv2 = self.makeLayerVariables([4, 4, 16, 32], trainable, "conv2")
-
+            W_conv2, b_conv2 = self.make_layer_variables([4, 4, 16, 32], trainable, "conv2")
             h_conv2 = tf.nn.relu(tf.nn.conv2d(h_conv1, W_conv2, strides=[1, 2, 2, 1], padding='VALID') + b_conv2,
                                  name="h_conv2")
             print(h_conv2)
 
         # Fourth layer convolves 64 3x3 filters with stride 1 with relu
         with tf.compat.v1.variable_scope("cnn3_" + name):
-            W_conv3, b_conv3 = self.makeLayerVariables([3, 3, 32, 32], trainable, "conv3")
-
+            W_conv3, b_conv3 = self.make_layer_variables([3, 3, 32, 32], trainable, "conv3")
             h_conv3 = tf.nn.relu(tf.nn.conv2d(h_conv2, W_conv3, strides=[1, 1, 1, 1], padding='VALID') + b_conv3,
                                  name="h_conv3")
             print(h_conv3)
@@ -148,23 +140,21 @@ class DeepQNetwork:
 
         # Fifth layer is fully connected with 512 relu units
         with tf.compat.v1.variable_scope("fc1_" + name):
-            W_fc1, b_fc1 = self.makeLayerVariables([7 * 7 * 32, 256], trainable, "fc1")
-
+            W_fc1, b_fc1 = self.make_layer_variables([7 * 7 * 32, 256], trainable, "fc1")
             h_fc1 = tf.nn.relu(tf.matmul(h_conv3_flat, W_fc1) + b_fc1, name="h_fc1")
             print(h_fc1)
 
         # Sixth (Output) layer is fully connected linear layer
         with tf.compat.v1.variable_scope("fc2_" + name):
-            W_fc2, b_fc2 = self.makeLayerVariables([256, numActions], trainable, "fc2")
-
+            W_fc2, b_fc2 = self.make_layer_variables([256, numActions], trainable, "fc2")
             y = tf.matmul(h_fc1, W_fc2) + b_fc2
             print(y)
 
         return x, y
 
-    def makeLayerVariables(self, shape, trainable, name_suffix):
+    def make_layer_variables(self, shape, trainable, name_suffix):
         if self.normalizeWeights:
-            # This is my best guess at what DeepMind does via torch's Linear.lua and SpatialConvolution.lua (see
+            # This is best guess at what DeepMind does via torch's Linear.lua and SpatialConvolution.lua (see
             # reset methods). np.prod(shape[0:-1]) is attempting to get the total inputs to each node
             stdv = 1.0 / math.sqrt(np.prod(shape[0:-1]))
             weights = tf.Variable(tf.compat.v1.random_uniform(shape, minval=-stdv, maxval=stdv), trainable=trainable,
@@ -186,10 +176,9 @@ class DeepQNetwork:
 
     def train(self, batch, stepNumber):
 
-        x2 = [b.state2.getScreens() for b in batch]
+        x2 = [b.state2.get_screens() for b in batch]
         y2 = self.y_target.eval(feed_dict={self.x_target: x2}, session=self.sess)
-
-        x = [b.state1.getScreens() for b in batch]
+        x = [b.state1.get_screens() for b in batch]
         a = np.zeros((len(batch), self.numActions))
         y_ = np.zeros(len(batch))
 

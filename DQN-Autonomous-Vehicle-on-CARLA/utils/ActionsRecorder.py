@@ -1,11 +1,10 @@
-import cv2 as cv
-import numpy as np
-from threading import Thread
 import time
+import datetime
 
-class Recorder:
+
+class VideoRecording:
     def __init__(self, cap, car, out):
-        super(Recorder, self).__init__()
+        super(VideoRecording, self).__init__()
         self.cap = cap
         self.car = car
         self.out = out
@@ -16,7 +15,7 @@ class Recorder:
         global current_frame
         while(video_recording):
             current_frame = self.cap.read()
-            out.append( (current_frame, car.get_current_control(), car.has_crashed()) )
+            self.out.append( (current_frame, self.car.get_current_control(), self.car.has_crashed()) )
             time.sleep(0.015)
             
 

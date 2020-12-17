@@ -49,7 +49,7 @@ class CarEnv:
                 self.isTerminal = True
                 self.car_stop_count = 0
                 self.prev_action = None
-                self.state = self.state.stateByAddingScreen(self.inputImage.copy(), self.frame_number)
+                self.state = self.state.state_by_adding_screen(self.inputImage.copy(), self.frame_number)
                 return reward, self.state, self.isTerminal
 
             prevScreenRGB = self.inputImage.copy()
@@ -88,7 +88,7 @@ class CarEnv:
 
             screenRGB = self.inputImage.copy()
 
-        self.state = self.state.stateByAddingScreen(screenRGB, self.frame_number)
+        self.state = self.state.state_by_adding_screen(screenRGB, self.frame_number)
         self.gameScore += reward
         self.prev_action = action
         return reward, self.state, self.isTerminal
@@ -98,7 +98,7 @@ class CarEnv:
             self.gameNumber += 1
             self.isTerminal = False
         # self.state = State().stateByAddingScreen(self.camera.capture_as_rgb_array_bottom_half(), self.frame_number)
-        self.state = State().stateByAddingScreen(self.camera.read(), self.frame_number)
+        self.state = State().state_by_adding_screen(self.camera.read(), self.frame_number)
         self.gameScore = 0
         self.episodeStepNumber = 0
         self.episode_frame_number = 0
