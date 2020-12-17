@@ -52,7 +52,7 @@ os.makedirs(baseOutputDir)
 
 State.setup(args)
 
-environment = CarEnv(args, baseOutputDir)
+environment = CarEnv(args)
 dqn = dqn.DeepQNetwork(environment.getNumActions(), baseOutputDir, args)
 replayMemory = replay.ReplayMemory(args)
 

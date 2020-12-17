@@ -10,9 +10,7 @@ MAX_STOP = 3
 
 class CarEnv:
 
-    def __init__(self, args, outputDir):
-
-        self.outputDir = outputDir
+    def __init__(self, args):
 
         self.car = Car()
         self.camera = CarlaCamera(self.car)
