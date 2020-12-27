@@ -3,6 +3,13 @@ import blosc
 import cv2 as cv
 
 
+def transform_to_tf_input(img, width=84, height=84):
+    dim = (width, height)
+    resized = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    resized = cv.resize(resized, dim, interpolation = cv.INTER_AREA) 
+    return resized
+
+
 class State:
     IMAGE_SIZE = 84
     useCompression = False
@@ -14,10 +21,15 @@ class State:
         State.step_frames = args.frame
 
     def state_by_adding_screen(self, screen, frameNumber):
-        screen = np.dot(screen, np.array([.299, .587, .114])).astype(np.uint8)
-        y_resize = State.IMAGE_SIZE / screen.shape[0]
-        x_resize = State.IMAGE_SIZE / screen.shape[1]
-        screen = cv.resize(screen, (0, 0), fx=x_resize, fy=y_resize)
+        #screen = np.dot(screen, np.array([.299, .587, .114])).astype(np.uint8)  #trasforma in grigi
+
+        #ridimensiona usando numpy
+        #y_resize = State.IMAGE_SIZE / screen.shape[0]
+        #x_resize = State.IMAGE_SIZE / screen.shape[1]
+        #screen = cv.resize(screen, (0, 0), fx=x_resize, fy=y_resize)
+
+        screen = transform_to_tf_input(screen, State.IMAGE_SIZE, State.IMAGE_SIZE)
+
         screen.resize((State.IMAGE_SIZE, State.IMAGE_SIZE, 1))
 
         if State.useCompression:

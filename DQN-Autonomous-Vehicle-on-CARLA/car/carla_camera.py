@@ -12,6 +12,6 @@ class CarlaCamera(Camera):
 
     def _read(self):
         image = self.car.get_image()
-        image[self.car.get_road_highlight() < 128] = 0
+        #image[self.car.get_road_highlight() < 128] = 0 #This trims out everything except road
         self.value = image
         return image

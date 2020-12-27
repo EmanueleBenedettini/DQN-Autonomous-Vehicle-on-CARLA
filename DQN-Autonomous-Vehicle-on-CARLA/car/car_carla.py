@@ -8,6 +8,7 @@ import random
 import cv2 as cv
 import numpy as np
 import time
+#import numba
 
 from utils.config import load_data
 
@@ -52,12 +53,14 @@ class Car:
     def process_img(self, raw_image):
         i = np.array(raw_image.raw_data)
         i2 = i.reshape((self.IM_HEIGHT, self.IM_WIDTH, 4))  # RGBA
+        i2 = i2[200::] # trim the top part
         self.image = cv.cvtColor(i2, cv.COLOR_RGBA2RGB)
         return
 
     def process_img_semantic(self, data):
         i = np.array(data.raw_data)
         i2 = i.reshape((self.IM_HEIGHT, self.IM_WIDTH, 4))  # RGBA
+        i2 = i2[200::] # trim the top part
         self.semantic_image = i2[:, :, 2]
         return
 
@@ -116,12 +119,14 @@ class Car:
                 self.collision.listen(lambda data: self.collisions.append(data))
                 # print("collision sensor initialized")
 
+                self.initialized = True
+
             except RuntimeError:
                 print("Init phase failed, check server connection. Retrying in 30s")
-                self.initialized = False
                 time.sleep(30)
-
-            self.initialized = True
+                self.initialized = False
+            
+            #End of while
 
         time.sleep(3)
 
@@ -145,6 +150,7 @@ class Car:
     def get_semantic_image(self):
         return self.semantic_image.copy()
 
+    #@numba.jit
     def get_road_highlight(self):
         sem_img = self.get_semantic_image()
         sem_img[sem_img == 6] = 255
@@ -158,24 +164,41 @@ class Car:
     def get_current_control(self):
         return self.current_applied_control
 
+    #@numba.jit
+    def front_side_proximity_detector(self):
+        image = self.get_road_highlight()
+        check = image[(image.shape[0]//3)*2, image.shape[1]//3:(image.shape[1]//3)*2:] == 0
+        if check.any():
+            return True
+        return False
+
+    #@numba.jit
+    def left_side_proximity_detector(self):
+        image = self.get_road_highlight()
+        check = image[-1, :(image.shape[1]//3):] == 0
+        if check.any():
+            return True
+        return False
+
+    #@numba.jit
+    def right_side_proximity_detector(self):
+        image = self.get_road_highlight() 
+        check = image[-1, (image.shape[1]//3)*2::] == 0
+        if check.any():
+            return True
+        return False
+
     def has_crashed(self):
-        val = False
+        if self.collisions:# physical collision
+            return True
 
-        # physical collision
-        if self.collisions:
-            val = True
-
-        # camera bottom line black == out of road
-        image = self.get_image()
-        image[self.get_road_highlight() < 128] = 0
-        check = image[-1, ::] == 0
+        image = self.get_road_highlight() # using semantic camera for out of road collision
+        check = image[-1, ::] == 0 # image bottom line == 0 equals car out of road
         if check.all():
-            val = True
+            return True
 
-        return val
+        return False
 
-    def autopilot(self, state):
-        self.vehicle.set_autopilot(state)
 
     def destroy(self):
         self.camera.stop()

@@ -14,7 +14,7 @@ from car_env import CarEnv
 from state import State
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--episode-timeout", type=int, default=300,
+parser.add_argument("--episode-timeout", type=int, default=60,
                     help="maximum episode amount of time allowed is seconds")
 parser.add_argument("--train-epoch-steps", type=int, default=5000,
                     help="how many steps (=X frames) to run during a training epoch (approx -- will finish current game)")
@@ -38,7 +38,7 @@ parser.add_argument("--target-model-update-freq", type=int, default=300,
 parser.add_argument("--model", help="tensorflow model checkpoint file to initialize from")
 parser.add_argument("--frame", type=int, default=2, help="frame per step")
 parser.add_argument("--epsilon", type=float, default=1, help="]0, 1]for epsilon greedy train")
-parser.add_argument("--epsilon-decay", type=float, default=0.99998,
+parser.add_argument("--epsilon-decay", type=float, default=0.999998,
                     help="]0, 1] every step epsilon = epsilon * decay, in order to decrease constantly")
 parser.add_argument("--epsilon-min", type=float, default=0.1, help="epsilon with decay doesn't fall below epsilon min")
 parser.add_argument("--tensorboard-logging-freq", type=int, default=300,
@@ -47,10 +47,11 @@ args = parser.parse_args()
 
 print('Arguments: ', args)
 
-if args.model is not None:
-    baseOutputDir = args.model
-else:
-    baseOutputDir = 'run-out-' + time.strftime("%Y-%m-%d-%H-%M-%S")
+#if args.model is not None:
+    #baseOutputDir = args.model
+#else:
+
+baseOutputDir = 'run-out-' + time.strftime("%Y-%m-%d-%H-%M-%S")
 os.makedirs(baseOutputDir)
 
 State.setup(args)
