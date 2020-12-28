@@ -41,7 +41,7 @@ parser.add_argument("--image-width", type=int, default=84, help="the width of th
 parser.add_argument("--image-height", type=int, default=84, help="the height of the image")
 parser.add_argument("--history-length", type=int, default=2, help="(>=1) length of history used in the dqn. An action is performed [history-length] time")
 parser.add_argument("--epsilon", type=float, default=1, help="]0, 1]for epsilon greedy train")
-parser.add_argument("--epsilon-decay", type=float, default=0.999995,
+parser.add_argument("--epsilon-decay", type=float, default=0.999993,
                     help="]0, 1] every step epsilon = epsilon * decay, in order to decrease constantly")
 parser.add_argument("--epsilon-min", type=float, default=0.1, help="epsilon with decay doesn't fall below epsilon min")
 parser.add_argument("--tensorboard-logging-freq", type=int, default=300,
@@ -102,22 +102,26 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
     global episode_train_reward_list
     global episode_eval_reward_list
     global train_epsilon
-    stepStart = environment.getStepNumber()
+    stepStart = environment.get_step_number()
     is_training = True if evalWithEpsilon is None else False
     startGameNumber = environment.get_game_number()
     epochTotalScore = 0
     step_time_mean = 0.0
 
-    while environment.getStepNumber() - stepStart < minEpochSteps and not stop:
+    while environment.get_step_number() - stepStart < minEpochSteps and not stop:
         stateReward = 0
         state = None
+        save_net = False
 
         episode_losses = []
 
         epStartTime = datetime.datetime.now()
 
-        while not environment.isGameOver() and not stop:
+        while not environment.is_game_over() and not stop:
             step_time_start = datetime.datetime.now()
+
+            if environment.get_step_number() % args.save_model_freq == 0:
+                    save_net = True
 
             # Choose next action
             if evalWithEpsilon is None:
@@ -145,9 +149,9 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
                 clippedReward = min(1, max(-1, reward))
                 replayMemory.add_sample(replay.Sample(oldState, action, clippedReward, state, isTerminal))
 
-                if environment.getStepNumber() > args.observation_steps and environment.getEpisodeStepNumber() % args.history_length == 0:
+                if environment.get_step_number() > args.observation_steps and environment.get_episode_step_number() % args.history_length == 0:
                     batch = replayMemory.draw_batch(32)
-                    loss = dqn.train(batch, environment.getStepNumber())
+                    loss = dqn.train(batch, environment.get_step_number())
                     episode_losses.append(loss)
 
             if isTerminal:
@@ -177,7 +181,7 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
 
         if is_training:
             train_episodes += 1
-            episode_train_reward_list.insert(0, environment.getGameScore())
+            episode_train_reward_list.insert(0, environment.get_game_score())
             if len(episode_train_reward_list) > 100:
                 episode_train_reward_list = episode_train_reward_list[:-1]
             avg_rewards = np.mean(episode_train_reward_list)
@@ -187,38 +191,41 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
                 episode_avg_loss = np.mean(episode_losses)
 
             log = ('Episode %d ended with score: %.2f (%s elapsed) (step: %d). Avg score: %.2f Avg loss: %.5f' %
-                   (environment.get_game_number(), environment.getGameScore(), str(episode_time),
-                    environment.getStepNumber(), avg_rewards, episode_avg_loss))
+                   (environment.get_game_number(), environment.get_game_score(), str(episode_time),
+                    environment.get_step_number(), avg_rewards, episode_avg_loss))
             print(log)
             print("   epsilon " + str(train_epsilon))
             if args.logging:
                 with summary_writer.as_default():
-                    tf.summary.scalar('train episode reward', environment.getGameScore(), step=train_episodes)
+                    tf.summary.scalar('train episode reward', environment.get_game_score(), step=train_episodes)
                     tf.summary.scalar('train avg reward(100)', avg_rewards, step=train_episodes)
                     tf.summary.scalar('average loss', episode_avg_loss, step=train_episodes)
                     tf.summary.scalar('epsilon', train_epsilon, step=train_episodes)
-                    tf.summary.scalar('steps', environment.getStepNumber(), step=train_episodes)
-                    tf.summary.scalar('step time (mean, ms)', step_time_mean*1000, step=train_episodes)
+                    tf.summary.scalar('steps', environment.get_step_number(), step=train_episodes)
+                    tf.summary.scalar('step avg time (ms)', step_time_mean*1000, step=train_episodes)
         else:
             eval_episodes += 1
-            episode_eval_reward_list.insert(0, environment.getGameScore())
+            episode_eval_reward_list.insert(0, environment.get_game_score())
             if len(episode_eval_reward_list) > 100:
                 episode_eval_reward_list = episode_eval_reward_list[:-1]
             avg_rewards = np.mean(episode_eval_reward_list)
 
             log = ('Eval %d ended with score: %.2f (%s elapsed) (step: %d). Avg score: %.2f' %
-                   (environment.get_game_number(), environment.getGameScore(), str(episode_time),
-                    environment.getStepNumber(), avg_rewards))
+                   (environment.get_game_number(), environment.get_game_score(), str(episode_time),
+                    environment.get_step_number(), avg_rewards))
             print(log)
             if args.logging:
                 with summary_writer.as_default():
-                    tf.summary.scalar('eval episode reward', environment.getGameScore(), step=eval_episodes)
+                    tf.summary.scalar('eval episode reward', environment.get_game_score(), step=eval_episodes)
                     tf.summary.scalar('eval avg reward(100)', avg_rewards, step=eval_episodes)
 
         print('   Step time mean = %.3f --> %dFPS' % (step_time_mean, int(1 / step_time_mean)))
 
-        epochTotalScore += environment.getGameScore()
-        environment.resetGame()
+        if save_net:
+            dqn.save_network()
+
+        epochTotalScore += environment.get_game_score()
+        environment.reset_game()
 
     # return the average score
     if environment.get_game_number() - startGameNumber == 0:
@@ -235,3 +242,4 @@ while not stop:
     print('\a')
 
 environment.stop()
+dqn.save_network()

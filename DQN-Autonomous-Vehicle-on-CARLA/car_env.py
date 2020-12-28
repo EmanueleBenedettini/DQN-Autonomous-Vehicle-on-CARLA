@@ -5,7 +5,7 @@ from car.car_carla import Car
 from car.carla_camera import CarlaCamera
 from state import State
 
-MAX_STOP = 3
+MAX_STOP = 5
 
 
 class CarEnv:
@@ -29,7 +29,7 @@ class CarEnv:
 
         self.isTerminal = False
 
-        self.resetGame()
+        self.reset_game()
 
     def step(self, action):
         self.isTerminal = False
@@ -44,7 +44,7 @@ class CarEnv:
 
             if self.car.has_crashed():
                 # print("crash detected")
-                self._resetCar()
+                self._reset_car()
                 reward = -1
                 self.isTerminal = True
                 self.car_stop_count = 0
@@ -61,8 +61,8 @@ class CarEnv:
 
             if action == 0:
                 self.car.action_by_id(0)  # Stop
-                reward = -0.01
                 self.car_stop_count += 1
+                reward = -0.05 * self.car_stop_count    # reward decreases if action choosen continuously
 
             elif action == 1:  # Forward
                 self.car.action_by_id(1)  # Forward
@@ -97,7 +97,7 @@ class CarEnv:
         self.prev_action = action
         return reward, self.state, self.isTerminal
 
-    def resetGame(self):
+    def reset_game(self):
         if self.isTerminal:
             self.gameNumber += 1
             self.isTerminal = False
@@ -114,7 +114,7 @@ class CarEnv:
         self.car.destroy()
         del self.car
 
-    def _resetCar(self):  # destroy and recreate a new one in a valid position
+    def _reset_car(self):  # destroy and recreate a new one in a valid position
         while True:
             self.car.destroy()
             del self.car
@@ -144,17 +144,17 @@ class CarEnv:
     def get_frame_number(self):
         return self.frame_number
 
-    def getEpisodeFrameNumber(self):
+    def get_episode_frame_number(self):
         return self.episode_frame_number
 
-    def getEpisodeStepNumber(self):
+    def get_episode_step_number(self):
         return self.episodeStepNumber
 
-    def getStepNumber(self):
+    def get_step_number(self):
         return self.stepNumber
 
-    def getGameScore(self):
+    def get_game_score(self):
         return self.gameScore
 
-    def isGameOver(self):
+    def is_game_over(self):
         return self.isTerminal
