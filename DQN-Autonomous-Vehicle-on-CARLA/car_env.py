@@ -15,7 +15,7 @@ class CarEnv:
         self.car = Car()
         self.camera = CarlaCamera(self.car)
 
-        self.step_frames = args.frame
+        self.step_frames = args.history_length 
 
         self.actionSet = [0, 1, 2, 3]
         self.gameNumber = 0
@@ -68,30 +68,21 @@ class CarEnv:
                 self.car.action_by_id(1)  # Forward
                 reward = 0.6
                 if self.car.left_side_proximity_detector() or self.car.right_side_proximity_detector():
-                    reward = -0.4
+                    reward = -0.2
                 if self.car.front_side_proximity_detector():
-                    reward = -0.7
+                    reward = -0.6
                     
             elif action == 2:  # Left
                 self.car.action_by_id(2)  # Left
-                reward = 0.3
-                if self.prev_action == 2:
-                    reward = -0.25
+                reward = 0.2
                 if self.car.left_side_proximity_detector():
-                    reward = -0.7
+                    reward = -0.4
 
             elif action == 3:  # Right
                 self.car.action_by_id(3)  # Right
-                reward = 0.3
-                if self.prev_action == 1:
-                    reward = -0.25
+                reward = 0.2
                 if self.car.right_side_proximity_detector():
-                    reward = -0.7
-
-            # elif action == 4:
-            #  self.car.action_by_id(4)  #Backward
-            #  self.camera.add_note_to_video("action_backward")
-            #  reward = -0.6
+                    reward = -0.4
             
             else:
                 raise ValueError('`action` should be between 0 and 3.')
@@ -138,16 +129,19 @@ class CarEnv:
             if not self.car.has_crashed():
                 break
 
-    def getNumActions(self):
+    def get_state_size(self):
+        return len(self.state.get_screens())
+
+    def get_num_actions(self):
         return len(self.actionSet)
 
-    def getState(self):
+    def get_state(self):
         return self.state
 
-    def getGameNumber(self):
+    def get_game_number(self):
         return self.gameNumber
 
-    def getFrameNumber(self):
+    def get_frame_number(self):
         return self.frame_number
 
     def getEpisodeFrameNumber(self):

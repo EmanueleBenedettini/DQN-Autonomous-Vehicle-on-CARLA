@@ -3,7 +3,14 @@ import blosc
 import cv2 as cv
 
 
-def transform_to_tf_input(img, width=84, height=84):
+def canny_filter(image, sizex, sizey, soglia1, soglia2):    # Edge enhancer
+    blurred = cv.GaussianBlur(image, (sizex, sizey), 0)
+    edges = cv.Canny(blurred, soglia1, soglia2)
+    res = image.copy()
+    res[edges!=0] = 255
+    return res
+
+def transform_to_tf_input(img, width=84, height=84):    # Transforms image to tf input
     dim = (width, height)
     resized = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     resized = cv.resize(resized, dim, interpolation = cv.INTER_AREA) 
@@ -11,30 +18,26 @@ def transform_to_tf_input(img, width=84, height=84):
 
 
 class State:
-    IMAGE_SIZE = 84
+    IMAGE_HEIGHT = 84
+    IMAGE_WIDHT = 84
     useCompression = False
     step_frames = 4
 
     @staticmethod
     def setup(args):
         State.useCompression = args.compress_replay
-        State.step_frames = args.frame
+        State.step_frames = args.history_length
+        IMAGE_HEIGHT = args.image_height
+        IMAGE_WIDHT = args.image_width
 
     def state_by_adding_screen(self, screen, frameNumber):
-        #screen = np.dot(screen, np.array([.299, .587, .114])).astype(np.uint8)  #trasforma in grigi
 
-        #ridimensiona usando numpy
-        #y_resize = State.IMAGE_SIZE / screen.shape[0]
-        #x_resize = State.IMAGE_SIZE / screen.shape[1]
-        #screen = cv.resize(screen, (0, 0), fx=x_resize, fy=y_resize)
-
-        screen = transform_to_tf_input(screen, State.IMAGE_SIZE, State.IMAGE_SIZE)
-
-        screen.resize((State.IMAGE_SIZE, State.IMAGE_SIZE, 1))
+        screen = transform_to_tf_input(screen, State.IMAGE_HEIGHT, State.IMAGE_WIDHT)  
+        screen.resize((State.IMAGE_HEIGHT, State.IMAGE_WIDHT, 1)) #adapt image to 3 dimensions
 
         if State.useCompression:
             screen = blosc.compress(
-                np.reshape(screen, State.IMAGE_SIZE * State.IMAGE_SIZE).tobytes(), typesize=1)
+                np.reshape(screen, State.IMAGE_HEIGHT * State.IMAGE_WIDHT).tobytes(), typesize=1)
 
         newState = State()
         if hasattr(self, 'screens'):
@@ -52,7 +55,7 @@ class State:
             for i in range(State.step_frames):
                 s.append(np.reshape(np.fromstring(
                     blosc.decompress(
-                        self.screens[i]), dtype=np.uint8), (State.IMAGE_SIZE, State.IMAGE_SIZE, 1)))
+                        self.screens[i]), dtype=np.uint8), (State.IMAGE_HEIGHT, State.IMAGE_WIDHT, 1)))
         else:
             s = self.screens
         if State.step_frames == 1:

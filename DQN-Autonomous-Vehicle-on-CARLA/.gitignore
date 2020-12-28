@@ -1,2 +1,5 @@
 run-out-*/
 .idea/
+
+Debug/
+*.ipynb

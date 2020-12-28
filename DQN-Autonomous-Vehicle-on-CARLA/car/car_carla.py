@@ -55,6 +55,7 @@ class Car:
         i2 = i.reshape((self.IM_HEIGHT, self.IM_WIDTH, 4))  # RGBA
         i2 = i2[200::] # trim the top part
         self.image = cv.cvtColor(i2, cv.COLOR_RGBA2RGB)
+        self.image_available = True
         return
 
     def process_img_semantic(self, data):
@@ -69,6 +70,7 @@ class Car:
         self.IM_HEIGHT = 480
         self.actor_list = []
         self.image = []
+        self.image_available = False
         self.semantic_image = []
         self.current_control = 0
         self.current_applied_control = (0, 0, 0, False)
@@ -97,6 +99,7 @@ class Car:
                 cam_bp.set_attribute("image_size_y", f"{self.IM_HEIGHT}")
                 spawn_point = carla.Transform(carla.Location(x=2.5, z=0.7))
                 self.camera = world.spawn_actor(cam_bp, spawn_point, attach_to=self.vehicle)
+                self.camera.fov = 140.0
                 self.actor_list.append(self.camera)
                 self.camera.listen(lambda data: self.process_img(data))
                 # print("camera initialized")
@@ -107,6 +110,7 @@ class Car:
                 cam_bp.set_attribute("image_size_y", f"{self.IM_HEIGHT}")
                 spawn_point = carla.Transform(carla.Location(x=2.5, z=0.7))
                 self.s_camera = world.spawn_actor(cam_bp, spawn_point, attach_to=self.vehicle)
+                #self.s_camera.fov = 120
                 self.actor_list.append(self.s_camera)
                 self.s_camera.listen(lambda data: self.process_img_semantic(data))
                 # print("semantic camera initialized")
@@ -132,9 +136,10 @@ class Car:
 
     def apply_control(self, throttle=0.0, steer=0.0, brake=0.0, reverse=False):  # throttle 0:1, steer -1:1, brake 0:1
         self.current_applied_control = (throttle, steer, brake, reverse)
-        # self.vehicle.apply_control(carla.VehicleControl(throttle=throttle, steer=steer, brake=brake, reverse=reverse, hand_brake=False, manual_gear_shift=True, gear=1))
         self.vehicle.apply_control(
-            carla.VehicleControl(throttle=throttle, steer=steer, brake=brake, reverse=reverse, hand_brake=False))
+                                   carla.VehicleControl(throttle=throttle, steer=steer, brake=brake, reverse=reverse, hand_brake=False, manual_gear_shift=True, gear=1))
+        #self.vehicle.apply_control(
+        #                            carla.VehicleControl(throttle=throttle, steer=steer, brake=brake, reverse=reverse, hand_brake=False))
 
     def action_by_id(self, act):
         self.current_control = act
@@ -145,6 +150,8 @@ class Car:
         return self.IM_WIDTH, self.IM_HEIGHT
 
     def get_image(self):
+        while not self.image_available:
+            time.sleep(0.001)
         return self.image.copy()
 
     def get_semantic_image(self):
