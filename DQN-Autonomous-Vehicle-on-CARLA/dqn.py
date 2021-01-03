@@ -19,7 +19,6 @@ class DeepQNetwork:
 
         self.checkpoint_dir = base_dir + '/models/'
 
-        #self.lidar_to_image = args.lidar_to_image
         self.image_width = args.image_width
         self.image_height = args.image_height
 
@@ -99,7 +98,7 @@ class DeepQNetwork:
     def train(self, batch, step_number):
         old_states = np.asarray([sample.old_state.get_screens() for sample in batch])
         new_states = np.asarray([sample.new_state.get_screens() for sample in batch])
-        actions = np.asarray([sample.action for sample in batch])
+        actions = np.asarray([sample.action for sample in batch], dtype=object)
         rewards = np.asarray([sample.reward for sample in batch])
         is_terminal = np.asarray([sample.terminal for sample in batch])
 

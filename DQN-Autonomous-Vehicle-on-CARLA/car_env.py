@@ -31,7 +31,7 @@ class CarEnv:
 
         self.reset_game()
 
-    def step(self, action):
+    def step(self, action, isTraining = False):
         self.isTerminal = False
         self.stepNumber += 1
         self.episodeStepNumber += 1
@@ -44,7 +44,7 @@ class CarEnv:
 
             if self.car.has_crashed():
                 # print("crash detected")
-                self._reset_car()
+                #self._reset_car()
                 reward = -1
                 self.isTerminal = True
                 self.car_stop_count = 0
@@ -62,13 +62,12 @@ class CarEnv:
             if action == 0:
                 self.car.action_by_id(0)  # Stop
                 self.car_stop_count += 1
-                reward = -0.05 * self.car_stop_count    # reward decreases if action choosen continuously
+                #reward = max(-0.01 * self.car_stop_count, -0.1) # reward decreases if action is choosen continuously
+                reward = -0.1
 
             elif action == 1:  # Forward
                 self.car.action_by_id(1)  # Forward
                 reward = 0.6
-                if self.car.left_side_proximity_detector() or self.car.right_side_proximity_detector():
-                    reward = -0.2
                 if self.car.front_side_proximity_detector():
                     reward = -0.6
                     
@@ -76,13 +75,13 @@ class CarEnv:
                 self.car.action_by_id(2)  # Left
                 reward = 0.2
                 if self.car.left_side_proximity_detector():
-                    reward = -0.4
+                    reward = -0.2
 
             elif action == 3:  # Right
                 self.car.action_by_id(3)  # Right
                 reward = 0.2
                 if self.car.right_side_proximity_detector():
-                    reward = -0.4
+                    reward = -0.2
             
             else:
                 raise ValueError('`action` should be between 0 and 3.')
@@ -91,6 +90,9 @@ class CarEnv:
                 self.car_stop_count = 0
 
             screenRGB = self.inputImage.copy()
+
+            #if isTraining:
+                #time.sleep(0.01)    #give time to perform action
 
         self.state = self.state.state_by_adding_screen(screenRGB, self.frame_number)
         self.gameScore += reward
@@ -108,7 +110,8 @@ class CarEnv:
         self.episode_frame_number = 0
         self.car_stop_count = 0
         self.prev_action = None
-        self.car.action_by_id(0)  # Stop
+        self._reset_car()
+        #self.car.action_by_id(0)  # Stop
 
     def stop(self):
         self.car.destroy()

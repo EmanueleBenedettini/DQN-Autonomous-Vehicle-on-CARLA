@@ -14,8 +14,10 @@ import replay
 from car_env import CarEnv
 from state import State
 
+np.warnings.filterwarnings('error', category=np.VisibleDeprecationWarning)  # transform warning to errors
+
 parser = argparse.ArgumentParser()
-parser.add_argument("--episode-timeout", type=int, default=60,
+parser.add_argument("--episode-timeout", type=int, default=180,
                     help="maximum episode amount of time allowed is seconds")
 parser.add_argument("--train-epoch-steps", type=int, default=5000,
                     help="how many steps (=X frames) to run during a training epoch (approx -- will finish current game)")
@@ -28,8 +30,8 @@ parser.add_argument("--compress-replay", action='store_true',
                     help="if set replay memory will be compressed with blosc, allowing much larger replay capacity")
 parser.add_argument("--normalize-weights", action='store_true',
                     help="if set weights/biases are normalized like torch, with std scaled by fan in to the node")
-parser.add_argument("--save-model-freq", type=int, default=2000, help="save the model once per X training sessions")
-parser.add_argument("--observation-steps", type=int, default=350, help="train only after this many step (=X frames)")
+parser.add_argument("--save-model-freq", type=int, default=20000, help="save the model once per X steps")
+parser.add_argument("--observation-steps", type=int, default=350, help="train only after this many steps (=X frames)")
 parser.add_argument("--learning-rate", type=float, default=0.0004,
                     help="learning rate (step size for optimization algo)")
 parser.add_argument("--gamma", type=float, default=0.996,
@@ -90,6 +92,7 @@ process = Thread(target=stop_handler)
 process.start()
 
 episode_min_time = 0.015  # minimum time required per step execution
+episode_max_time = episode_min_time*4
 
 train_epsilon = args.epsilon  # don't want to reset epsilon between epoch
 startTime = datetime.datetime.now()
@@ -106,12 +109,12 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
     is_training = True if evalWithEpsilon is None else False
     startGameNumber = environment.get_game_number()
     epochTotalScore = 0
-    step_time_mean = 0.0
 
     while environment.get_step_number() - stepStart < minEpochSteps and not stop:
         stateReward = 0
         state = None
         save_net = False
+        step_time_avg = 0.0
 
         episode_losses = []
 
@@ -142,7 +145,7 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
 
             # Make the move
             oldState = state
-            reward, state, isTerminal = environment.step(action)
+            reward, state, isTerminal = environment.step(action, is_training)
 
             # Record experience in replay memory and train
             if is_training and oldState is not None:
@@ -163,15 +166,14 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
                 break
 
             # calculate step time and mean
-            step_time_stop = datetime.datetime.now()
-            step_delta = (step_time_stop - step_time_start).total_seconds()
-            if step_time_mean < episode_min_time:
-                step_time_mean = step_delta
+            step_delta = (datetime.datetime.now() - step_time_start).total_seconds()
+            if step_time_avg < episode_min_time:
+                step_time_avg = step_delta
             else:
-                step_time_mean = step_time_mean * 0.999 + step_delta * 0.001
-            step_time_mean = max(step_time_mean, episode_min_time)
-            if step_delta < step_time_mean:
-                time.sleep(step_time_mean - step_delta)  # wait for mean step time to be reached
+                step_time_avg = step_time_avg * 0.99 + step_delta * 0.01
+            step_time_avg = max(step_time_avg, episode_min_time)
+            if step_delta < step_time_avg:
+                time.sleep( min(step_time_avg - step_delta, episode_max_time) )  # wait for mean step time to be reached
 
         #################################
         # logging
@@ -202,7 +204,7 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
                     tf.summary.scalar('average loss', episode_avg_loss, step=train_episodes)
                     tf.summary.scalar('epsilon', train_epsilon, step=train_episodes)
                     tf.summary.scalar('steps', environment.get_step_number(), step=train_episodes)
-                    tf.summary.scalar('step avg time (ms)', step_time_mean*1000, step=train_episodes)
+                    tf.summary.scalar('train step avg time (ms)', step_time_avg*1000, step=train_episodes)
         else:
             eval_episodes += 1
             episode_eval_reward_list.insert(0, environment.get_game_score())
@@ -218,8 +220,9 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
                 with summary_writer.as_default():
                     tf.summary.scalar('eval episode reward', environment.get_game_score(), step=eval_episodes)
                     tf.summary.scalar('eval avg reward(100)', avg_rewards, step=eval_episodes)
+                    tf.summary.scalar('eval step avg time (ms)', step_time_avg*1000, step=eval_episodes)
 
-        print('   Step time mean = %.3f --> %dFPS' % (step_time_mean, int(1 / step_time_mean)))
+        print('   Step time avg = %.3f --> %dFPS' % (step_time_avg, int(1 / step_time_avg)))
 
         if save_net:
             dqn.save_network()
@@ -229,7 +232,7 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
 
     # return the average score
     if environment.get_game_number() - startGameNumber == 0:
-        return 0
+        return epochTotalScore
     return epochTotalScore / (environment.get_game_number() - startGameNumber)
 
 

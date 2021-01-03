@@ -152,12 +152,12 @@ class Car:
     def get_image(self):
         while not self.image_available:
             time.sleep(0.001)
+        self.image_available = False
         return self.image.copy()
 
     def get_semantic_image(self):
         return self.semantic_image.copy()
 
-    #@numba.jit
     def get_road_highlight(self):
         sem_img = self.get_semantic_image()
         sem_img[sem_img == 6] = 255
@@ -171,7 +171,6 @@ class Car:
     def get_current_control(self):
         return self.current_applied_control
 
-    #@numba.jit
     def front_side_proximity_detector(self):
         image = self.get_road_highlight()
         check = image[(image.shape[0]//3)*2, image.shape[1]//3:(image.shape[1]//3)*2:] == 0
@@ -179,7 +178,6 @@ class Car:
             return True
         return False
 
-    #@numba.jit
     def left_side_proximity_detector(self):
         image = self.get_road_highlight()
         check = image[-1, :(image.shape[1]//3):] == 0
@@ -187,7 +185,6 @@ class Car:
             return True
         return False
 
-    #@numba.jit
     def right_side_proximity_detector(self):
         image = self.get_road_highlight() 
         check = image[-1, (image.shape[1]//3)*2::] == 0
