@@ -13,7 +13,9 @@ def canny_filter(image, sizex, sizey, soglia1, soglia2):    # Edge enhancer
 def transform_to_tf_input(img, width=84, height=84):    # Transforms image to tf input
     dim = (width, height)
     resized = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    resized = cv.resize(resized, dim, interpolation = cv.INTER_AREA) 
+    resized = cv.resize(resized, dim, interpolation = cv.INTER_AREA)
+    resized = canny_filter(resized, 5, 5, 68, 88) # highlight borders
+    cv.equalizeHist(resized)    # equalize histogram
     return resized
 
 

@@ -8,6 +8,7 @@ import time
 from threading import Thread
 import numpy as np
 import tensorflow as tf
+import cv2 as cv
 
 from dqn import DeepQNetwork
 import replay
@@ -17,7 +18,7 @@ from state import State
 np.warnings.filterwarnings('error', category=np.VisibleDeprecationWarning)  # transform warning to errors
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--episode-timeout", type=int, default=180,
+parser.add_argument("--episode-timeout", type=int, default=120,
                     help="maximum episode amount of time allowed is seconds")
 parser.add_argument("--train-epoch-steps", type=int, default=5000,
                     help="how many steps (=X frames) to run during a training epoch (approx -- will finish current game)")
@@ -32,23 +33,24 @@ parser.add_argument("--normalize-weights", action='store_true',
                     help="if set weights/biases are normalized like torch, with std scaled by fan in to the node")
 parser.add_argument("--save-model-freq", type=int, default=20000, help="save the model once per X steps")
 parser.add_argument("--observation-steps", type=int, default=350, help="train only after this many steps (=X frames)")
-parser.add_argument("--learning-rate", type=float, default=0.0004,
+parser.add_argument("--learning-rate", type=float, default=0.00036,
                     help="learning rate (step size for optimization algo)")
 parser.add_argument("--gamma", type=float, default=0.996,
                     help="gamma [0, 1] is the discount factor. It determines the importance of future rewards. A factor of 0 will make the agent consider only immediate reward, a factor approaching 1 will make it strive for a long-term high reward")
-parser.add_argument("--target-model-update-freq", type=int, default=300,
+parser.add_argument("--target-model-update-freq", type=int, default=350,
                     help="how often (in steps) to update the target model.  Note nature paper says this is in 'number of parameter updates' but their code says steps. see tinyurl.com/hokp4y8")
 parser.add_argument("--model", help="tensorflow model checkpoint file to initialize from")
 parser.add_argument("--image-width", type=int, default=84, help="the width of the image")
 parser.add_argument("--image-height", type=int, default=84, help="the height of the image")
-parser.add_argument("--history-length", type=int, default=2, help="(>=1) length of history used in the dqn. An action is performed [history-length] time")
+parser.add_argument("--history-length", type=int, default=3, help="(>=1) length of history used in the dqn. An action is performed [history-length] time")
 parser.add_argument("--epsilon", type=float, default=1, help="]0, 1]for epsilon greedy train")
-parser.add_argument("--epsilon-decay", type=float, default=0.999993,
+parser.add_argument("--epsilon-decay", type=float, default=0.999985,
                     help="]0, 1] every step epsilon = epsilon * decay, in order to decrease constantly")
 parser.add_argument("--epsilon-min", type=float, default=0.1, help="epsilon with decay doesn't fall below epsilon min")
 parser.add_argument("--tensorboard-logging-freq", type=int, default=300,
                     help="save training statistics once every X steps")
 parser.add_argument("--logging", type=bool, default=True, help="enable tensorboard logging")
+parser.add_argument("--show-images", type=bool, default=True, help="enable image visualization")
 args = parser.parse_args()
 
 print('Arguments: ', args)
@@ -92,7 +94,9 @@ process = Thread(target=stop_handler)
 process.start()
 
 episode_min_time = 0.015  # minimum time required per step execution
-episode_max_time = episode_min_time*4
+episode_max_time = episode_min_time*2
+train_step_time_avg = episode_min_time
+eval_step_time_avg = episode_min_time
 
 train_epsilon = args.epsilon  # don't want to reset epsilon between epoch
 startTime = datetime.datetime.now()
@@ -105,6 +109,8 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
     global episode_train_reward_list
     global episode_eval_reward_list
     global train_epsilon
+    global train_step_time_avg
+    global eval_step_time_avg
     stepStart = environment.get_step_number()
     is_training = True if evalWithEpsilon is None else False
     startGameNumber = environment.get_game_number()
@@ -114,7 +120,7 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
         stateReward = 0
         state = None
         save_net = False
-        step_time_avg = 0.0
+        #step_time_avg = 0.0
 
         episode_losses = []
 
@@ -140,7 +146,11 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
             if state is None or random.random() < epsilon:
                 action = random.randrange(environment.get_num_actions())  # random action
             else:
-                screens = np.reshape(state.get_screens(), (1, State.IMAGE_HEIGHT, State.IMAGE_WIDHT, args.history_length))
+                screens = state.get_screens()
+                if args.show_images:
+                    cv.imshow("Car main camera", cv.resize(screens[..., 0], (300, 300), interpolation = cv.INTER_AREA))
+                    cv.waitKey(1)
+                screens = np.reshape(screens, (1, State.IMAGE_HEIGHT, State.IMAGE_WIDHT, args.history_length))
                 action = dqn.inference(screens)  # this one takes the decision based on input
 
             # Make the move
@@ -167,13 +177,16 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
 
             # calculate step time and mean
             step_delta = (datetime.datetime.now() - step_time_start).total_seconds()
-            if step_time_avg < episode_min_time:
-                step_time_avg = step_delta
+            if is_training:
+                if train_step_time_avg < episode_min_time:
+                    train_step_time_avg = step_delta
+                else:
+                    train_step_time_avg = train_step_time_avg * 0.999 + step_delta * 0.001
+                train_step_time_avg = max(train_step_time_avg, episode_min_time)
+                if step_delta < train_step_time_avg:
+                    time.sleep(min(train_step_time_avg - step_delta, episode_max_time))  # wait for mean step time to be reached
             else:
-                step_time_avg = step_time_avg * 0.99 + step_delta * 0.01
-            step_time_avg = max(step_time_avg, episode_min_time)
-            if step_delta < step_time_avg:
-                time.sleep( min(step_time_avg - step_delta, episode_max_time) )  # wait for mean step time to be reached
+                eval_step_time_avg = eval_step_time_avg * 0.999 + step_delta * 0.001
 
         #################################
         # logging
@@ -204,7 +217,9 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
                     tf.summary.scalar('average loss', episode_avg_loss, step=train_episodes)
                     tf.summary.scalar('epsilon', train_epsilon, step=train_episodes)
                     tf.summary.scalar('steps', environment.get_step_number(), step=train_episodes)
-                    tf.summary.scalar('train step avg time (ms)', step_time_avg*1000, step=train_episodes)
+                    tf.summary.scalar('train step avg time (ms)', train_step_time_avg * 1000, step=train_episodes)
+            print('   Step time avg = %.3f ---> %d Step/s' % (train_step_time_avg, int(1 / train_step_time_avg)))
+
         else:
             eval_episodes += 1
             episode_eval_reward_list.insert(0, environment.get_game_score())
@@ -220,9 +235,8 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
                 with summary_writer.as_default():
                     tf.summary.scalar('eval episode reward', environment.get_game_score(), step=eval_episodes)
                     tf.summary.scalar('eval avg reward(100)', avg_rewards, step=eval_episodes)
-                    tf.summary.scalar('eval step avg time (ms)', step_time_avg*1000, step=eval_episodes)
-
-        print('   Step time avg = %.3f --> %dFPS' % (step_time_avg, int(1 / step_time_avg)))
+                    tf.summary.scalar('eval step avg time (ms)', eval_step_time_avg * 1000, step=eval_episodes)
+            print('   Step time avg = %.3f ---> %d Step/s' % (eval_step_time_avg, int(1 / eval_step_time_avg)))
 
         if save_net:
             dqn.save_network()

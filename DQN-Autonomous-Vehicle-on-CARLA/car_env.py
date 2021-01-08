@@ -39,12 +39,10 @@ class CarEnv:
         for i in range(0, self.step_frames):
             self.frame_number += 1
             self.episode_frame_number += 1
-            # self.inputImage = self.camera.capture_as_rgb_array_bottom_half()
             self.inputImage = self.camera.read()
 
-            if self.car.has_crashed():
+            if self.car.has_crashed() or self.car.is_server_crashed():
                 # print("crash detected")
-                #self._reset_car()
                 reward = -1
                 self.isTerminal = True
                 self.car_stop_count = 0
@@ -62,8 +60,7 @@ class CarEnv:
             if action == 0:
                 self.car.action_by_id(0)  # Stop
                 self.car_stop_count += 1
-                #reward = max(-0.01 * self.car_stop_count, -0.1) # reward decreases if action is choosen continuously
-                reward = -0.1
+                reward = 0 #-0.1
 
             elif action == 1:  # Forward
                 self.car.action_by_id(1)  # Forward
@@ -73,15 +70,15 @@ class CarEnv:
                     
             elif action == 2:  # Left
                 self.car.action_by_id(2)  # Left
-                reward = 0.2
+                reward = 0.22
                 if self.car.left_side_proximity_detector():
-                    reward = -0.2
+                    reward = -0.22
 
             elif action == 3:  # Right
                 self.car.action_by_id(3)  # Right
-                reward = 0.2
+                reward = 0.22
                 if self.car.right_side_proximity_detector():
-                    reward = -0.2
+                    reward = -0.22
             
             else:
                 raise ValueError('`action` should be between 0 and 3.')
@@ -91,46 +88,43 @@ class CarEnv:
 
             screenRGB = self.inputImage.copy()
 
-            #if isTraining:
-                #time.sleep(0.01)    #give time to perform action
-
         self.state = self.state.state_by_adding_screen(screenRGB, self.frame_number)
         self.gameScore += reward
         self.prev_action = action
         return reward, self.state, self.isTerminal
 
     def reset_game(self):
+        self._reset_car()
         if self.isTerminal:
             self.gameNumber += 1
             self.isTerminal = False
-        # self.state = State().stateByAddingScreen(self.camera.capture_as_rgb_array_bottom_half(), self.frame_number)
         self.state = State().state_by_adding_screen(self.camera.read(), self.frame_number)
         self.gameScore = 0
         self.episodeStepNumber = 0
         self.episode_frame_number = 0
         self.car_stop_count = 0
         self.prev_action = None
-        self._reset_car()
-        #self.car.action_by_id(0)  # Stop
 
     def stop(self):
         self.car.destroy()
         del self.car
 
     def _reset_car(self):  # destroy and recreate a new one in a valid position
-        while True:
-            self.car.destroy()
-            del self.car
-            del self.camera
-            self.car = Car()
-            self.camera = CarlaCamera(self.car)
-
-            self.car.apply_control(0.5, -1, 0, False)  # give to it a random movement
-            time.sleep(random.randrange(0, 2) + 0.5)
-            self.car.apply_control(0, 0, 1, False)
-
-            if not self.car.has_crashed():
-                break
+        reinitialize = self.episodeStepNumber<10 or self.car.is_server_crashed()
+        if reinitialize:
+            while True:
+                self.car.destroy()
+                del self.car
+                del self.camera
+                self.car = Car()
+                self.camera = CarlaCamera(self.car)
+                self.car.apply_control(0.5, -1, 0, False)  # give to it a random movement
+                time.sleep(random.randrange(0, 2) + 0.5)
+                self.car.apply_control(0, 0, 1, False)
+                if not self.car.has_crashed():
+                    break
+        else:
+            self.car.reset_position()
 
     def get_state_size(self):
         return len(self.state.get_screens())

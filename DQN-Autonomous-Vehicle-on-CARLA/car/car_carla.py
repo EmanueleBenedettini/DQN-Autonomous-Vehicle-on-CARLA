@@ -8,6 +8,7 @@ import random
 import cv2 as cv
 import numpy as np
 import time
+import math
 #import numba
 
 from utils.config import load_data
@@ -53,7 +54,7 @@ class Car:
     def process_img(self, raw_image):
         i = np.array(raw_image.raw_data)
         i2 = i.reshape((self.IM_HEIGHT, self.IM_WIDTH, 4))  # RGBA
-        i2 = i2[200::] # trim the top part
+        i2 = i2[int(self.IM_HEIGHT//2.4)::] # trim the top part
         self.image = cv.cvtColor(i2, cv.COLOR_RGBA2RGB)
         self.image_available = True
         return
@@ -61,19 +62,20 @@ class Car:
     def process_img_semantic(self, data):
         i = np.array(data.raw_data)
         i2 = i.reshape((self.IM_HEIGHT, self.IM_WIDTH, 4))  # RGBA
-        i2 = i2[200::] # trim the top part
+        i2 = i2[int(self.IM_HEIGHT//2.4)::] # trim the top part
         self.semantic_image = i2[:, :, 2]
         return
 
     def __init__(self):
-        self.IM_WIDTH = 640
-        self.IM_HEIGHT = 480
+        self.IM_WIDTH = 84*2
+        self.IM_HEIGHT = 84
         self.actor_list = []
         self.image = []
         self.image_available = False
         self.semantic_image = []
         self.current_control = 0
         self.current_applied_control = (0, 0, 0, False)
+        self.server_crash_detected = False
 
         settings = load_data(CONFIGFILE)
 
@@ -99,7 +101,6 @@ class Car:
                 cam_bp.set_attribute("image_size_y", f"{self.IM_HEIGHT}")
                 spawn_point = carla.Transform(carla.Location(x=2.5, z=0.7))
                 self.camera = world.spawn_actor(cam_bp, spawn_point, attach_to=self.vehicle)
-                self.camera.fov = 140.0
                 self.actor_list.append(self.camera)
                 self.camera.listen(lambda data: self.process_img(data))
                 # print("camera initialized")
@@ -110,7 +111,6 @@ class Car:
                 cam_bp.set_attribute("image_size_y", f"{self.IM_HEIGHT}")
                 spawn_point = carla.Transform(carla.Location(x=2.5, z=0.7))
                 self.s_camera = world.spawn_actor(cam_bp, spawn_point, attach_to=self.vehicle)
-                #self.s_camera.fov = 120
                 self.actor_list.append(self.s_camera)
                 self.s_camera.listen(lambda data: self.process_img_semantic(data))
                 # print("semantic camera initialized")
@@ -129,17 +129,17 @@ class Car:
                 print("Init phase failed, check server connection. Retrying in 30s")
                 time.sleep(30)
                 self.initialized = False
-            
             #End of while
 
         time.sleep(3)
+        self.start_position = self.get_position()
+
 
     def apply_control(self, throttle=0.0, steer=0.0, brake=0.0, reverse=False):  # throttle 0:1, steer -1:1, brake 0:1
         self.current_applied_control = (throttle, steer, brake, reverse)
         self.vehicle.apply_control(
                                    carla.VehicleControl(throttle=throttle, steer=steer, brake=brake, reverse=reverse, hand_brake=False, manual_gear_shift=True, gear=1))
-        #self.vehicle.apply_control(
-        #                            carla.VehicleControl(throttle=throttle, steer=steer, brake=brake, reverse=reverse, hand_brake=False))
+        #                           carla.VehicleControl(throttle=throttle, steer=steer, brake=brake, reverse=reverse, hand_brake=False))
 
     def action_by_id(self, act):
         self.current_control = act
@@ -150,10 +150,20 @@ class Car:
         return self.IM_WIDTH, self.IM_HEIGHT
 
     def get_image(self):
-        while not self.image_available:
+        i = 0
+        while not self.image_available and i<1000:
             time.sleep(0.001)
-        self.image_available = False
-        return self.image.copy()
+            i+=1
+
+        if i<1000:
+            self.image_available = False
+            return self.image.copy()
+        else:
+            self.server_crash_detected = True
+            return np.zeros_like(self.image)
+
+    def is_server_crashed(self):
+        return self.server_crash_detected
 
     def get_semantic_image(self):
         return self.semantic_image.copy()
@@ -203,10 +213,25 @@ class Car:
 
         return False
 
+    def get_position(self):
+        return self.vehicle.get_location()
+
+    def get_speed(self):
+        velocity = self.vehicle.get_velocity()
+        return math.sqrt(velocity.x**2 + velocity.y**2 + velocity.z**2)
+
+    def reset_position(self):
+        self.action_by_id(0)
+        while self.get_speed() >= 0.1:
+            time.sleep(0.1)
+        self.vehicle.set_location(self.start_position)
+        self.collisions = []
+        time.sleep(0.1)
 
     def destroy(self):
         self.camera.stop()
         self.s_camera.stop()
         self.collision.stop()
-        for actor in self.actor_list:
-            actor.destroy()
+        if not self.is_server_crashed():
+            for actor in self.actor_list:
+                actor.destroy()
