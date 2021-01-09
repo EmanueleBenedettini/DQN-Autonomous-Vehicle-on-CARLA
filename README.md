@@ -1,14 +1,14 @@
 # DQN-Autonomous-Vehicle-on-CARLA
 An autonomous Vehicle running on CARLA simulator
 
-This project is based on Michael Bosellos's repository https://github.com/MichaelBosello/Self-Driving-Car and is meant to be a revised version running on CARLA simulator, rather than on real car. The code is modular, so building new car instances is very easy!
+This project is based on Michael Bosello's repository https://github.com/MichaelBosello/Self-Driving-Car and is meant to be a revised version running on CARLA simulator, rather than on real car. The code is modular, so building new car instances is very easy!
 
 Now the DQN inputs and outputs are only passed to the car instance, not as before. It is the car instance that orchestrates the data coming from the sensors and aggregates them into a single frame, which is fed to the DQN
 
 ## Commands
 
 - standard learning run -> **rl_car_driver.py**
-- restore old run -> **rl_car_driver.py --model run-out-xxxx-xx-xx-xx-xx-xx --epsilon YourLastEpsilon**
+- restore old run -> **rl_car_driver.py --model run-out-xxxx-xx-xx-xx-xx-xx --epsilon 0.7**
 
 note: setting epsilon and epsilon-min to 0 makes the code run on eval mode.
 
@@ -16,9 +16,9 @@ note: setting epsilon and epsilon-min to 0 makes the code run on eval mode.
 
 **CARLA simulator requires specific python version to work properly.**
 
-- CARLA 0.9.8
+- CARLA 0.9.11
 - python 3.7.9
-- TensorFlow 2.x (actually used in v1 mode)
+- TensorFlow 2.x
 
 Other python versions could work but this one suggested.  
 I also suggest to use anaconda.  
