@@ -26,7 +26,8 @@ class ReplayMemory:
     
     def __init__(self, base_output_dir, args):
         self.save_buffer_dir = base_output_dir + "/models/"
-        if not os.path.isdir(self.save_buffer_dir):
+        self.evaluate_only = args.evaluate
+        if not os.path.isdir(self.save_buffer_dir) and not self.evaluate_only:
             os.makedirs(self.save_buffer_dir)
         self.file = "replay_buffer.dat"
         self.samples = []
@@ -35,7 +36,7 @@ class ReplayMemory:
         self.num_interesting_samples = 0
         self.batches_drawn = 0
 
-        if args.model is not None:
+        if args.model is not None and not self.evaluate_only:
             self.load(args.model + self.file)
 
     def num_samples(self):

@@ -1,5 +1,7 @@
+import os
 import random
 import time
+import cv2 as cv
 
 from car.car_carla import Car
 from car.carla_camera import CarlaCamera
@@ -10,9 +12,10 @@ MAX_STOP = 5
 
 class CarEnv:
 
-    def __init__(self, args):
+    def __init__(self, args, base_output_dir):
 
-        self.car = Car()
+        self.evaluate_run = args.evaluate
+        self.car = Car(high_res_capture=self.evaluate_run)
         self.camera = CarlaCamera(self.car)
 
         self.step_frames = args.history_length 
@@ -26,8 +29,10 @@ class CarEnv:
         self.car_stop_count = 0
         self.prev_action = None
         self.inputImage = self.camera.read()
-
+        self.show_images = args.show_images
         self.isTerminal = False
+
+        self.base_output_dir = base_output_dir
 
         self.reset_game()
 
@@ -110,13 +115,19 @@ class CarEnv:
         del self.car
 
     def _reset_car(self):  # destroy and recreate a new one in a valid position
+        if self.evaluate_run:
+            self.save_demo_video()
+
+        if self.show_images:
+            self.show_demo_video()
+
         reinitialize = self.episodeStepNumber<10 or self.car.is_server_crashed()
         if reinitialize:
             while True:
                 self.car.destroy()
                 del self.car
                 del self.camera
-                self.car = Car()
+                self.car = Car(high_res_capture=self.evaluate_run)
                 self.camera = CarlaCamera(self.car)
                 self.car.apply_control(0.5, -1, 0, False)  # give to it a random movement
                 time.sleep(random.randrange(0, 2) + 0.5)
@@ -155,3 +166,22 @@ class CarEnv:
 
     def is_game_over(self):
         return self.isTerminal
+
+    def show_demo_video(self):
+        image_list, _ = self.car.get_image_list()
+        for img in image_list:
+            cv.imshow("Car main camera", img)
+            cv.waitKey(30)
+
+    def save_demo_video(self):
+        video_dir = self.base_output_dir + '/videos/'
+        if not os.path.isdir(video_dir):
+            os.makedirs(video_dir)
+        img_array, size = self.car.get_image_list()
+        x, y = size
+        zise = (y, x)
+        fourcc = cv.VideoWriter_fourcc(*'DIVX') # NOTE this depends on your OS.
+        out = cv.VideoWriter(video_dir + str(self.get_game_number()) + '.avi', fourcc, 30, zise)
+        for im in img_array:
+            out.write(im)
+        out.release()

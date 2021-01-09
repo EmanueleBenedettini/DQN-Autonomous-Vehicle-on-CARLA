@@ -12,6 +12,7 @@ class DeepQNetwork:
         self.state_size = state_size
         self.replay_buffer = replay_buffer
         self.history_length = args.history_length
+        self.evaluate_only = args.evaluate
 
         self.learning_rate = args.learning_rate
         self.gamma = args.gamma
@@ -22,7 +23,7 @@ class DeepQNetwork:
         self.image_width = args.image_width
         self.image_height = args.image_height
 
-        if not os.path.isdir(self.checkpoint_dir):
+        if (not os.path.isdir(self.checkpoint_dir)) and (not self.evaluate_only):
             os.makedirs(self.checkpoint_dir)
 
         self.behavior_net = self.__build_q_net()
@@ -136,7 +137,8 @@ class DeepQNetwork:
         return loss
 
     def save_network(self):
-        print("saving..")
-        self.target_net.save_weights(self.checkpoint_dir)
-        self.replay_buffer.save()
-        print("saved")
+        if not self.evaluate_only:
+            print("saving..")
+            self.target_net.save_weights(self.checkpoint_dir)
+            self.replay_buffer.save()
+            print("saved")

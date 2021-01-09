@@ -3,6 +3,7 @@
 import argparse
 import datetime
 import os
+import shutil
 import random
 import time
 from threading import Thread
@@ -51,11 +52,24 @@ parser.add_argument("--tensorboard-logging-freq", type=int, default=300,
                     help="save training statistics once every X steps")
 parser.add_argument("--logging", type=bool, default=True, help="enable tensorboard logging")
 parser.add_argument("--show-images", type=bool, default=True, help="enable image visualization")
+parser.add_argument("--evaluate", type=bool, default=False, help="makes the code run in evaluation mode. model is requested")
 args = parser.parse_args()
 
 print('Arguments: ', args)
 
-base_output_dir = 'run-out-' + time.strftime("%Y-%m-%d-%H-%M-%S")
+if args.evaluate:
+    if args.model is None:
+        print("--model is required to run an evaluation")
+        exit()
+    else:
+        base_output_dir = 'eval-' + args.model
+        base_output_dir, _ = os.path.split(base_output_dir) #2 times, go up 2 folders
+        base_output_dir, _ = os.path.split(base_output_dir)
+        if os.path.isdir(base_output_dir):
+            shutil.rmtree(base_output_dir, ignore_errors=True) 
+            time.sleep(1)
+else:
+    base_output_dir = 'run-out-' + time.strftime("%Y-%m-%d-%H-%M-%S")
 os.makedirs(base_output_dir)
 
 tensorboard_dir = base_output_dir + "/tensorboard/"
@@ -66,7 +80,7 @@ with summary_writer.as_default():
 
 State.setup(args)
 
-environment = CarEnv(args)
+environment = CarEnv(args, base_output_dir)
 replayMemory = replay.ReplayMemory(base_output_dir, args)
 dqn = DeepQNetwork(environment.get_num_actions(), environment.get_state_size(),
                    replayMemory, base_output_dir, tensorboard_dir, args)
@@ -148,7 +162,7 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
             else:
                 screens = state.get_screens()
                 if args.show_images:
-                    cv.imshow("Car main camera", cv.resize(screens[..., 0], (300, 300), interpolation = cv.INTER_AREA))
+                    cv.imshow("TF input", cv.resize(screens[..., 0], (300, 300), interpolation = cv.INTER_AREA))
                     cv.waitKey(1)
                 screens = np.reshape(screens, (1, State.IMAGE_HEIGHT, State.IMAGE_WIDHT, args.history_length))
                 action = dqn.inference(screens)  # this one takes the decision based on input
@@ -251,9 +265,10 @@ def run_epoch(minEpochSteps, evalWithEpsilon=None):
 
 
 while not stop:
-    aveScore = run_epoch(args.train_epoch_steps)  # train
-    print('Average training score: %d' % aveScore)
-    print('\a')
+    if not args.evaluate:
+        aveScore = run_epoch(args.train_epoch_steps)  # train
+        print('Average training score: %d' % aveScore)
+        print('\a')
     aveScore = run_epoch(args.eval_epoch_steps, evalWithEpsilon=.0)  # eval
     print('Average eval score: %d' % aveScore)
     print('\a')

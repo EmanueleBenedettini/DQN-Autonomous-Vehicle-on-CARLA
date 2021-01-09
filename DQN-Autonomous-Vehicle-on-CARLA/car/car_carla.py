@@ -9,6 +9,7 @@ import cv2 as cv
 import numpy as np
 import time
 import math
+from state import State
 #import numba
 
 from utils.config import load_data
@@ -32,6 +33,8 @@ except IndexError:
     pass
 
 import carla
+# -- end of carla module search ------------------------------------------------
+
 
 CONFIGFILE = "config.json"
 
@@ -52,10 +55,13 @@ def _action_to_car_values(act):  # 0=stop, 1=forward, 2=left, 3=right
 class Car:
 
     def process_img(self, raw_image):
-        i = np.array(raw_image.raw_data)
-        i2 = i.reshape((self.IM_HEIGHT, self.IM_WIDTH, 4))  # RGBA
-        i2 = i2[int(self.IM_HEIGHT//2.4)::] # trim the top part
-        self.image = cv.cvtColor(i2, cv.COLOR_RGBA2RGB)
+        self.image = np.array(raw_image.raw_data)
+        self.image = self.image.reshape((self.IM_HEIGHT, self.IM_WIDTH, 4))  # RGBA
+        self.image = cv.cvtColor(self.image, cv.COLOR_RGBA2RGB)
+        if self.high_res_capture and self.recording:
+            if self.get_speed() > 0.1:
+                self.image_array.append(self.image.copy())
+        self.image = self.image[int(self.IM_HEIGHT//2.4)::] # trim the top part
         self.image_available = True
         return
 
@@ -66,16 +72,26 @@ class Car:
         self.semantic_image = i2[:, :, 2]
         return
 
-    def __init__(self):
-        self.IM_WIDTH = 84*2
-        self.IM_HEIGHT = 84
+    def __init__(self, high_res_capture=False):
+
+        self.high_res_capture = high_res_capture
+
+        # aspect ratio will always be 1 height, 2 width
+        if self.high_res_capture:
+            self.IM_HEIGHT = 240
+        else:
+            self.IM_HEIGHT = State.IMAGE_HEIGHT
+        self.IM_WIDTH = self.IM_HEIGHT*2
+
         self.actor_list = []
         self.image = []
+        self.image_array = []
         self.image_available = False
         self.semantic_image = []
         self.current_control = 0
         self.current_applied_control = (0, 0, 0, False)
         self.server_crash_detected = False
+        self.recording = True
 
         settings = load_data(CONFIGFILE)
 
@@ -162,6 +178,10 @@ class Car:
             self.server_crash_detected = True
             return np.zeros_like(self.image)
 
+    def get_image_list(self):
+        self.recording = False
+        return self.image_array, (self.IM_HEIGHT, self.IM_WIDTH)
+
     def is_server_crashed(self):
         return self.server_crash_detected
 
@@ -226,6 +246,8 @@ class Car:
             time.sleep(0.1)
         self.vehicle.set_location(self.start_position)
         self.collisions = []
+        self.image_array = []
+        self.recording = True
         time.sleep(0.1)
 
     def destroy(self):
