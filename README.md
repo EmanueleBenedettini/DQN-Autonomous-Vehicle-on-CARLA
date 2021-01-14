@@ -31,7 +31,7 @@ On Windows, copy  CARLA_Sim_Launcher/Launcher.bat into your folder containig the
 
 note: the simulator was set in low quality to avoid performance issues and shadows, making the learning rate faster.
 
-**Hardware used**
+## Hardware used
 
 This code was tested whit 2 pc interconnected whit Gb ethernet.
 
