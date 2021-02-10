@@ -33,9 +33,13 @@ note: the simulator was set in low quality to avoid performance issues and shado
 
 ## Hardware used
 
-This code was tested whit 2 pc interconnected whit Gb ethernet.
+This code was tested whit 2 pc interconnected whit 1Gb ethernet.
 
 - Server: AMD FX8350, 16GB 1600MHz, AMD RX580 4GB
 - Client: Intel i7-4710HQ, 8GB 1600MHz, NVidia GTX850M 2GB
 
 The pc experiencing the highest load was the server one which was handling all the rendering and pysical work. A considerable amount of processing was also taken by the ethernet communication. I will test if an high-end network card improves this aspect when it will arrive.
+
+## Demo
+
+https://youtu.be/nEpudLi6OUw
