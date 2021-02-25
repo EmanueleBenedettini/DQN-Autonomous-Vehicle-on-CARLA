@@ -57,31 +57,37 @@ class CarEnv:
 
             prevScreenRGB = self.inputImage.copy()
 
-            if self.car_stop_count >= MAX_STOP * self.step_frames:
-                action = 1
+            #if self.car_stop_count >= MAX_STOP * self.step_frames:
+                #action = 1
 
             reward = 0
 
             if action == 0:
                 self.car.action_by_id(0)  # Stop
                 self.car_stop_count += 1
-                reward = 0 #-0.1
+                reward = -0.1
+                if self.car.front_side_proximity_detector():
+                    reward = 0.1
 
             elif action == 1:  # Forward
                 self.car.action_by_id(1)  # Forward
-                reward = 0.6
+                reward = 0.7
                 if self.car.front_side_proximity_detector():
-                    reward = -0.6
+                    reward = -0.7
                     
             elif action == 2:  # Left
                 self.car.action_by_id(2)  # Left
                 reward = 0.22
+                if self.prev_action == 3:   # if dancing around
+                    reward = 0
                 if self.car.left_side_proximity_detector():
                     reward = -0.22
 
             elif action == 3:  # Right
                 self.car.action_by_id(3)  # Right
                 reward = 0.22
+                if self.prev_action == 2:   # if dancing around
+                    reward = 0
                 if self.car.right_side_proximity_detector():
                     reward = -0.22
             
@@ -100,9 +106,8 @@ class CarEnv:
 
     def reset_game(self):
         self._reset_car()
-        if self.isTerminal:
-            self.gameNumber += 1
-            self.isTerminal = False
+        self.gameNumber += 1
+        self.isTerminal = False
         self.state = State().state_by_adding_screen(self.camera.read(), self.frame_number)
         self.gameScore = 0
         self.episodeStepNumber = 0
@@ -129,9 +134,9 @@ class CarEnv:
                 del self.camera
                 self.car = Car(high_res_capture=self.evaluate_run)
                 self.camera = CarlaCamera(self.car)
-                self.car.apply_control(0.5, -1, 0, False)  # give to it a random movement
-                time.sleep(random.randrange(0, 2) + 0.5)
-                self.car.apply_control(0, 0, 1, False)
+                #self.car.apply_control(0.5, -1, 0, False)  # give it a random movement
+                #time.sleep(random.randrange(0, 2) + 0.5)
+                #self.car.apply_control(0, 0, 1, False)
                 if not self.car.has_crashed():
                     break
         else:
@@ -181,7 +186,7 @@ class CarEnv:
         x, y = size
         zise = (y, x)
         fourcc = cv.VideoWriter_fourcc(*'DIVX') # NOTE this depends on your OS.
-        out = cv.VideoWriter(video_dir + str(self.get_game_number()) + '.avi', fourcc, 30, zise)
+        out = cv.VideoWriter(video_dir + str(self.get_game_number()) + "_" + str(round(self.get_game_score(),1)) + 'pts.avi', fourcc, 30, zise)
         for im in img_array:
             out.write(im)
         out.release()

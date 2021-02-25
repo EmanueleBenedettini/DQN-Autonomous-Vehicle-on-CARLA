@@ -10,6 +10,7 @@ import numpy as np
 import time
 import math
 from state import State
+import threading
 #import numba
 
 from utils.config import load_data
@@ -51,6 +52,18 @@ def _action_to_car_values(act):  # 0=stop, 1=forward, 2=left, 3=right
     else:
         raise ValueError('`action` should be between 0 and 3.')
 
+def _action_to_string(act):  # 0=stop, 1=forward, 2=left, 3=right
+    if act == 0:
+        return "Stop"  # STOP
+    elif act == 1:
+        return "Forward"  # FORWARD
+    elif act == 2:
+        return "Left"  # LEFT
+    elif act == 3:
+        return "Right"  # RIGHT
+    else:
+        return "err"
+
 
 class Car:
 
@@ -60,7 +73,8 @@ class Car:
         self.image = cv.cvtColor(self.image, cv.COLOR_RGBA2RGB)
         if self.high_res_capture and self.recording:
             if self.get_speed() > 0.1:
-                self.image_array.append(self.image.copy())
+                image_whit_hud = cv.putText(self.image.copy(), str(round(self.get_speed(), 1))+"m/s  "+_action_to_string(self.current_control), (20, 40), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv.LINE_AA) 
+                self.image_array.append(image_whit_hud)
         self.image = self.image[int(self.IM_HEIGHT//2.4)::] # trim the top part
         self.image_available = True
         return
@@ -92,6 +106,9 @@ class Car:
         self.current_applied_control = (0, 0, 0, False)
         self.server_crash_detected = False
         self.recording = True
+        self.choosen_speed = 0
+        self.choosen_sterring = 0
+        self.stop = False
 
         settings = load_data(CONFIGFILE)
 
@@ -149,18 +166,62 @@ class Car:
 
         time.sleep(3)
         self.start_position = self.get_position()
+        self.thread = threading.Thread(target=self._body_controller)
+        self.thread.start()
 
+    def _body_controller(self):
+        while not self.stop:
+            steer = self.choosen_sterring
+            current_speed = self.get_speed()
+            if current_speed < 0.1:
+                current_speed = 0.1
 
-    def apply_control(self, throttle=0.0, steer=0.0, brake=0.0, reverse=False):  # throttle 0:1, steer -1:1, brake 0:1
+            if self.choosen_speed <= 0.1:
+                throttle = 0
+                brake = 1
+            elif current_speed <= self.choosen_speed:
+                throttle = max(min((self.choosen_speed/current_speed)-1, 1), 0)
+                brake = 0
+            else:
+                throttle = 0
+                brake = max(min((current_speed/self.choosen_speed)-1, 1), 0)
+            self._apply_control(throttle, steer, brake, False)
+            time.sleep(0.001)
+
+    def _apply_control(self, throttle=0.0, steer=0.0, brake=0.0, reverse=False):  # throttle 0:1, steer -1:1, brake 0:1
         self.current_applied_control = (throttle, steer, brake, reverse)
         self.vehicle.apply_control(
-                                   carla.VehicleControl(throttle=throttle, steer=steer, brake=brake, reverse=reverse, hand_brake=False, manual_gear_shift=True, gear=1))
-        #                           carla.VehicleControl(throttle=throttle, steer=steer, brake=brake, reverse=reverse, hand_brake=False))
+        #                           carla.VehicleControl(throttle=throttle, steer=steer, brake=brake, reverse=reverse, hand_brake=False, manual_gear_shift=True, gear=1))
+                                   carla.VehicleControl(throttle=throttle, steer=steer, brake=brake, reverse=reverse, hand_brake=False))
 
     def action_by_id(self, act):
         self.current_control = act
-        throttle, steer, brake, reverse = _action_to_car_values(act)
-        self.apply_control(throttle, steer, brake, reverse)
+        #throttle, steer, brake, reverse = _action_to_car_values(act)
+        #self.apply_control(throttle, steer, brake, reverse)
+        if act == 0:
+            self.set_speed(0.5)
+            #self.set_sterring(0)
+        elif act == 1:
+            self.set_speed(10)
+            self.set_sterring(0)
+        elif act == 2 or act == 3:
+            if act == 2:
+                self.set_sterring(-0.5)
+            else:
+                self.set_sterring(0.5)
+            self.set_speed(2)
+
+    def set_speed(self, speed):
+        self.choosen_speed = speed
+        if self.choosen_speed < 0:
+            self.choosen_speed = 0
+
+    def set_sterring(self, sterring):
+        self.choosen_sterring = sterring
+        if self.choosen_sterring < (-1):
+            self.choosen_sterring = -1
+        elif self.choosen_sterring > 1:
+            self.choosen_sterring = 1
 
     def get_im_sizes(self):
         return self.IM_WIDTH, self.IM_HEIGHT
@@ -236,7 +297,7 @@ class Car:
     def get_position(self):
         return self.vehicle.get_location()
 
-    def get_speed(self):
+    def get_speed(self):    # m/s
         velocity = self.vehicle.get_velocity()
         return math.sqrt(velocity.x**2 + velocity.y**2 + velocity.z**2)
 
@@ -251,6 +312,7 @@ class Car:
         time.sleep(0.1)
 
     def destroy(self):
+        self.stop = True
         self.camera.stop()
         self.s_camera.stop()
         self.collision.stop()

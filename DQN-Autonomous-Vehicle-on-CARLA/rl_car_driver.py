@@ -51,7 +51,7 @@ parser.add_argument("--epsilon-min", type=float, default=0.1, help="epsilon with
 parser.add_argument("--tensorboard-logging-freq", type=int, default=300,
                     help="save training statistics once every X steps")
 parser.add_argument("--logging", type=bool, default=True, help="enable tensorboard logging")
-parser.add_argument("--show-images", type=bool, default=True, help="enable image visualization")
+parser.add_argument("--show-images", type=bool, default=False, help="enable image visualization")
 parser.add_argument("--evaluate", type=bool, default=False, help="makes the code run in evaluation mode. model is requested")
 args = parser.parse_args()
 
