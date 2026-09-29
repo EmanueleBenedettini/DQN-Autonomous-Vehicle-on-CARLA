@@ -3,7 +3,7 @@
 
 carla==0.9.11
 tensorflow>=2.0,<3.0
-numpy
+numpy==1.19
 opencv-python
 traitlets
 blosc

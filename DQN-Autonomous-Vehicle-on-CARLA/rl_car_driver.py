@@ -6,6 +6,7 @@ import os
 import shutil
 import random
 import time
+import warnings
 from threading import Thread
 import numpy as np
 import tensorflow as tf
@@ -16,7 +17,7 @@ import replay
 from car_env import CarEnv
 from state import State
 
-np.warnings.filterwarnings('error', category=np.VisibleDeprecationWarning)  # transform warning to errors
+warnings.filterwarnings('error', category=np.VisibleDeprecationWarning)  # transform warning to errors
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--episode-timeout", type=int, default=120,
