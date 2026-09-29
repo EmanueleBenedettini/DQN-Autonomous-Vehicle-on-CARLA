@@ -1,0 +1,9 @@
+# Main DQN-CARLA project dependencies
+# Target environment from README: Python 3.7, CARLA 0.9.11, TensorFlow 2.x
+
+carla==0.9.11
+tensorflow>=2.0,<3.0
+numpy
+opencv-python
+traitlets
+blosc
